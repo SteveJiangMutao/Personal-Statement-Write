@@ -657,7 +657,13 @@ if st.button("开始生成初稿", type="primary"):
         for img_file in uploaded_curriculum_images:
             curriculum_imgs.append(Image.open(img_file))
     
+    # 创建进度条
     progress_bar = st.progress(0)
+    
+    # 创建状态信息显示区域
+    status_container = st.empty()
+    detail_container = st.empty()
+    
     total_steps = len(selected_modules)
     current_step = 0
     
@@ -758,13 +764,21 @@ if st.button("开始生成初稿", type="primary"):
 
     for module in selected_modules:
         current_step += 1
-        st.toast(f"正在撰写: {modules[module]} ...")
+        
+        # 更新状态信息
+        status_container.info(f"正在撰写: {modules[module]} ({current_step}/{total_steps})")
+        detail_container.markdown(f"🔍 **分析背景资料**，构建 {modules[module]} 部分...")
         
         current_media = None
         if module == "Academic":
             current_media = transcript_content
+            detail_container.markdown("📊 **分析成绩单**，提取相关学术背景...")
         elif module == "Why_School":
             current_media = curriculum_imgs
+            detail_container.markdown("🏫 **分析课程信息**，匹配学生背景与课程优势...")
+        
+        # 显示正在处理的提示
+        detail_container.markdown("✍️ **撰写初稿中**，请稍候...")
         
         res = get_gemini_response(prompts_map[module], media_content=current_media, text_context=student_background_text)
         
@@ -777,15 +791,23 @@ if st.button("开始生成初稿", type="primary"):
                     draft_part = res.split("[DRAFT_START]")[1].split("[DRAFT_END]")[0].strip()
                     st.session_state['motivation_trends'] = trends_part
                     final_text = draft_part
+                    detail_container.markdown("🔎 **提取行业趋势**，整合到申请动机...")
                 else:
                     final_text = res
             except:
                 final_text = res
 
         st.session_state['generated_sections'][module] = final_text
+        
+        # 更新进度条
         progress_bar.progress(current_step / total_steps)
+        
+        # 显示完成信息
+        detail_container.markdown(f"✅ **{modules[module]}** 部分已完成！")
+        time.sleep(0.5)  # 短暂停顿，让用户看到完成信息
 
     # 将所有生成的部分合并成一个完整的中文草稿
+    detail_container.markdown("📄 **整合所有部分**，生成完整草稿...")
     full_chinese_draft = ""
     for module in display_order:
         if module in st.session_state['generated_sections']:
@@ -807,6 +829,10 @@ if st.button("开始生成初稿", type="primary"):
         del st.session_state['header_cn']
     if 'header_en' in st.session_state:
         del st.session_state['header_en']
+
+    # 清除状态显示
+    status_container.empty()
+    detail_container.empty()
 
     # 🔴 修改：使用自定义 HTML 替代 st.success，实现圆角矩形、宝蓝背景、白色字体
     st.markdown(f"""
