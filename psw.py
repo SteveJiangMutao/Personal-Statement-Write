@@ -14,12 +14,6 @@ import re  # 引入正则库用于文本清洗
 from datetime import datetime
 
 # ==========================================
-# 🔴 核心配置：网络代理
-# ==========================================
-os.environ["HTTP_PROXY"] = "http://127.0.0.1:7897"
-os.environ["HTTPS_PROXY"] = "http://127.0.0.1:7897"
-
-# ==========================================
 # 0. 自动版本号生成逻辑
 # ==========================================
 def get_app_version():
@@ -417,7 +411,7 @@ with st.sidebar:
     else:
         st.success("Key 已就绪")
     
-    model_name = st.selectbox("选择模型", ["gemini-3-pro-preview", "gemini-2.5-pro"], index=0)
+    model_name = st.selectbox("选择模型", ["gemini-2.5-pro", "gemini-3-pro-preview"], index=0)
 
 # ==========================================
 # 4. 核心函数
