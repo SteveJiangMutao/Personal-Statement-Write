@@ -345,7 +345,7 @@ with st.sidebar:
     else:
         st.success("Key 已就绪")
     
-    model_name = st.selectbox("选择模型", ["gemini-3-pro-preview", "gemini-2.5-pro"], index=0)
+    model_name = st.selectbox("选择模型", ["gemini-2.5-pro", "gemini-3-pro-preview"], index=0)
 
 # ==========================================
 # 4. 核心函数 (优化效率与稳健性)
