@@ -594,8 +594,10 @@ if st.button("开始生成初稿", type="primary"):
     【任务】撰写 Personal Statement 的 "申请动机" (Motivation) 部分。
     
     【步骤 1：深度调研 (Research)】
-    请先分析 {target_school_name} 所在领域的最新行业热点或学术趋势。
-    **请严格列出 3 个关键趋势 (Options)**，并严格按照以下 **HTML 格式** 输出（除文献/报告标题保留原文外，其余分析内容请使用**中文**）：
+    请综合分析以下两点：
+    1. {target_school_name} 所在领域的最新行业热点或学术趋势。
+    2. **学生素材中的【实习/工作经历】或【科研项目】**（分析学生过去的经历涉及了哪些具体细分领域）。
+    请找到两者的**交集**，列出至少1个**既是当前行业前沿，又是学生在其过往经历中有所接触或产生过兴趣**的关键趋势，并严格按照以下 **HTML 格式** 输出（除文献/报告标题保留原文外，其余分析内容请使用**中文**）：
 
     <div style="margin-bottom: 18px;">
         <div style="font-weight: bold; font-size: 14px; margin-bottom: 6px;">Option [X]: [Trend Title]</div>
