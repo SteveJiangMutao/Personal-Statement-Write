@@ -2,14 +2,22 @@ import streamlit as st
 import google.generativeai as genai
 from PIL import Image
 import docx
-from docx.shared import Pt
+from docx.shared import Pt, RGBColor
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import PyPDF2
 import io
 import os
 import time
+import random
+import re  # 引入正则库用于文本清洗
 from datetime import datetime
+
+# ==========================================
+# 🔴 核心配置：网络代理
+# ==========================================
+os.environ["HTTP_PROXY"] = "http://127.0.0.1:7897"
+os.environ["HTTPS_PROXY"] = "http://127.0.0.1:7897"
 
 # ==========================================
 # 0. 自动版本号生成逻辑
@@ -19,9 +27,9 @@ def get_app_version():
         timestamp = os.path.getmtime(__file__)
         dt = datetime.fromtimestamp(timestamp)
         build_ver = dt.strftime('%m%d.%H%M')
-        return f"v13.34.{build_ver}", dt.strftime('%Y-%m-%d %H:%M:%S')
+        return f"v13.35.{build_ver}", dt.strftime('%Y-%m-%d %H:%M:%S')
     except Exception:
-        return "v13.34.Dev", "Unknown"
+        return "v13.35.Dev", "Unknown"
 
 current_version, last_updated_time = get_app_version()
 
@@ -36,30 +44,36 @@ st.set_page_config(page_title="个人陈述写作", layout="wide")
 def apply_custom_css():
     st.markdown("""
     <style>
+    /* 引入 Inter 字体 */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
+    /* 全局变量 - 定制配色 */
     :root {
-        --primary-color: #3666FA;
-        --bg-color: #FBF7EC;
-        --text-color: #3666FA;
-        --button-text: #FBF7EC;
+        --primary-color: #3666FA; /* 宝蓝 RGB 54, 102, 250 */
+        --bg-color: #FBF7EC;      /* 米色 RGB 251, 247, 236 */
+        --text-color: #3666FA;    /* 字体颜色跟随主色 */
+        --button-text: #FBF7EC;   /* 按钮内文字颜色 (米色) */
     }
 
+    /* 基础重置 */
     html, body, [class*="css"] {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         color: var(--text-color);
         background-color: var(--bg-color);
     }
     
+    /* 隐藏 Streamlit 默认 Header 和 Footer */
     header {visibility: hidden;}
     footer {visibility: hidden;}
 
+    /* 主容器背景优化 */
     .stApp {
         background-color: var(--bg-color);
     }
 
+    /* 侧边栏优化 */
     [data-testid="stSidebar"] {
-        background-color: #0f172a;
+        background-color: #0f172a; /* 深蓝背景 */
         border-right: 1px solid #1e293b;
     }
     
@@ -78,6 +92,7 @@ def apply_custom_css():
         border-color: #334155 !important;
     }
 
+    /* 侧边栏样式 */
     [data-testid="stSidebar"] .stTextInput input {
         background-color: #1e293b !important; 
         color: #ffffff !important;
@@ -98,6 +113,7 @@ def apply_custom_css():
         fill: #ffffff !important;
     }
 
+    /* 主区域样式 */
     h1 {
         color: var(--text-color) !important;
         font-weight: 800 !important;
@@ -133,6 +149,7 @@ def apply_custom_css():
         box-shadow: 0 0 0 2px rgba(54, 102, 250, 0.1) !important;
     }
 
+    /* 按钮样式修改：区分 Primary (选中) 和 Secondary (未选中) */
     div.stButton > button[kind="primary"] {
         background-color: var(--primary-color) !important;
         color: #ffffff !important;
@@ -146,8 +163,8 @@ def apply_custom_css():
     }
 
     div.stButton > button[kind="secondary"] {
-        background-color: #E2E8F0 !important;
-        color: #64748B !important;            
+        background-color: #E2E8F0 !important; /* 浅灰色 */
+        color: #64748B !important;            /* 深灰色 */
         border: none !important;
         border-radius: 8px !important;
         padding: 0.6rem 1.5rem !important;
@@ -246,8 +263,12 @@ if 'full_chinese_draft' not in st.session_state:
     st.session_state['full_chinese_draft'] = ""
 if 'full_translated_text' not in st.session_state:
     st.session_state['full_translated_text'] = ""
+# 删除 main_chat_history 的初始化，因为已经移除了灵感助手模块
+
+# 模块选择状态初始化
+display_order = ["Motivation", "Academic", "Internship", "Why_School", "Career_Goal"]
 if 'module_states' not in st.session_state:
-    display_order = ["Motivation", "Academic", "Internship", "Why_School", "Career_Goal"]
+    # 默认全选 (True)
     st.session_state['module_states'] = {key: True for key in display_order}
 
 # 标题
@@ -255,13 +276,43 @@ st.title("个人陈述写作")
 st.markdown("---")
 
 # ==========================================
-# 2. 核心辅助函数
+# 2. 核心文案库
 # ==========================================
 
+# --- A. 幽默加载文案库 (已去 Icon) ---
+FUNNY_LOADING_MESSAGES = [
+    "正在煮咖啡，顺便思考一下人生...",
+    "正在和 Google 总部的服务器进行脑电波对接...",
+    "正在以此生最快的速度翻阅整个互联网...",
+    "别急，AI 也是需要喘口气的...",
+    "为了这个问题，显卡正在微微发烫...",
+    "正在召唤数据魔法，请勿打扰...",
+    "正在假装很深沉地思考...",
+    "正在从赛博空间的角落里打捞数据...",
+    "灵感正在加载中，进度 99%...",
+    "正在学习如何像人类一样说话...",
+    "正在快速阅读 1000 本相关书籍...",
+    "正在向外星文明发送求助信号...",
+    "正在吃一口虚拟披萨补充能量...",
+    "正在为您演奏一首数据交响曲...",
+    "正在数据的海洋里狂奔...",
+    "正在拼凑逻辑的碎片...",
+    "正在给神经元充电...",
+    "正在校准卫星信号...",
+    "正在清理思维里的杂草...",
+    "正在掷骰子决定用哪个词..."
+]
+
+def get_random_loading_msg():
+    return random.choice(FUNNY_LOADING_MESSAGES)
+
+# 辅助函数：渲染蓝色圆角提示框
 def render_blue_box(text):
+    # 如果文本包含 HTML 闭合标签（如 </div> 或 </ul>），则认为是预格式化的 HTML
     if "</div>" in text or "</ul>" in text:
         html_text = text
     else:
+        # 否则认为是普通文本，将换行符转换为 HTML 换行
         html_text = text.replace('\n', '<br>')
         
     st.markdown(f"""
@@ -279,61 +330,82 @@ def render_blue_box(text):
     </div>
     """, unsafe_allow_html=True)
 
+# Word 导出辅助函数：添加页眉下框线
 def set_bottom_border(paragraph):
+    """
+    为段落添加下框线 (用于页眉)
+    """
     p = paragraph._p
     pPr = p.get_or_add_pPr()
     pBdr = OxmlElement('w:pBdr')
     bottom = OxmlElement('w:bottom')
     bottom.set(qn('w:val'), 'single')
-    bottom.set(qn('w:sz'), '6')
+    bottom.set(qn('w:sz'), '6') # 1/8 pt, 6 = 0.75pt
     bottom.set(qn('w:space'), '1')
-    bottom.set(qn('w:color'), '000000')
+    bottom.set(qn('w:color'), '000000') # 黑色
     pBdr.append(bottom)
     pPr.append(pBdr)
 
+# Word 导出辅助函数：生成 Word 文档 (包含清洗逻辑)
 def create_word_docx(content, header_text, font_name, is_chinese=False):
     doc = docx.Document()
     
+    # --- 1. 设置页眉 ---
     section = doc.sections[0]
     header = section.header
     
+    # 获取页眉的第一个段落（默认存在）
     header_para = header.paragraphs[0]
     header_para.text = header_text
     header_para.alignment = docx.enum.text.WD_ALIGN_PARAGRAPH.LEFT 
     
+    # 设置页眉下框线
     set_bottom_border(header_para)
     
+    # 设置页眉字体样式 (12pt, 斜体)
     for run in header_para.runs:
         run.font.name = font_name
         run.font.size = Pt(12)
         run.font.italic = True
+        # 处理中文字体显示
         if is_chinese:
             run._element.rPr.rFonts.set(qn('w:eastAsia'), font_name)
             
+    # --- 2. 设置正文 (清洗逻辑优化) ---
+    # 1. 去除 Markdown 加粗符号
     content = content.replace("**", "")
+    # 2. 去除 Markdown 单星号 (列表或斜体)
     content = content.replace("*", "")
     
+    # 按行处理
     for line in content.split('\n'):
         line = line.strip()
+        
+        # 3. 跳过空行
         if not line:
             continue
             
+        # 4. 🚨 核心修改：跳过段落标题行 (特征：以 --- 开头)
+        # 确保只保留正文，移除类似 "--- Motivation ---" 或 "--- 申请动机 ---" 的行
         if line.startswith("---") and line.endswith("---"):
             continue
             
         p = doc.add_paragraph(line)
+        # 设置正文样式 (11pt)
         for run in p.runs:
             run.font.name = font_name
             run.font.size = Pt(11)
+            # 处理中文字体显示
             if is_chinese:
                 run._element.rPr.rFonts.set(qn('w:eastAsia'), font_name)
     
+    # 保存到内存
     bio = io.BytesIO()
     doc.save(bio)
     return bio.getvalue()
 
 # ==========================================
-# 3. 系统设置
+# 3. 系统设置 (侧边栏)
 # ==========================================
 with st.sidebar:
     st.header("系统设置")
@@ -345,26 +417,11 @@ with st.sidebar:
     else:
         st.success("Key 已就绪")
     
-    model_name = st.selectbox("选择模型", ["gemini-2.5-pro", "gemini-3-pro-preview"], index=0)
+    model_name = st.selectbox("选择模型", ["gemini-3-pro-preview", "gemini-2.5-pro"], index=0)
 
 # ==========================================
-# 4. 核心函数 (优化效率与稳健性)
+# 4. 核心函数
 # ==========================================
-
-# 效率优化：缓存模型加载，避免重复初始化
-@st.cache_resource
-def load_model(api_key, model_name):
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel(model_name)
-
-# 效率优化：压缩图片，防止上传过大图片导致 Token 消耗过大
-def process_image(img_file):
-    image = Image.open(img_file)
-    max_size = 1024
-    if max(image.size) > max_size:
-        image.thumbnail((max_size, max_size))
-    return image
-
 def read_word_file(file):
     try:
         doc = docx.Document(file)
@@ -373,44 +430,42 @@ def read_word_file(file):
             full_text.append(para.text)
         return '\n'.join(full_text)
     except Exception as e:
-        return f"[读取 Word 失败]: {e}"
+        return f"Error reading Word file: {e}"
 
 def read_pdf_text(file):
     try:
         pdf_reader = PyPDF2.PdfReader(file)
         text = ""
         for page in pdf_reader.pages:
-            extracted = page.extract_text()
-            if extracted:
-                text += extracted + "\n"
-        return text if text else "[PDF 内容为空，请检查文件]"
+            text += page.extract_text() + "\n"
+        return text
     except Exception as e:
-        return f"[读取 PDF 失败]: {e}"
+        return f"Error reading PDF file: {e}"
 
 def get_gemini_response(prompt, media_content=None, text_context=None):
     if not api_key:
-        return "错误: 请先在左侧侧边栏输入 API Key"
+        return "Error: 请先在左侧侧边栏输入 API Key"
+        
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(model_name)
+    
+    content = []
+    content.append(prompt)
+    
+    if text_context:
+        content.append(f"\n【参考文档/背景信息 (简历或素材表)】:\n{text_context}")
+    
+    if media_content:
+        if isinstance(media_content, list):
+            content.extend(media_content)
+        else:
+            content.append(media_content)
         
     try:
-        # 使用缓存的模型加载函数
-        model = load_model(api_key, model_name)
-        
-        content = []
-        content.append(prompt)
-        
-        if text_context:
-            content.append(f"\n【参考文档/背景信息】:\n{text_context}")
-        
-        if media_content:
-            if isinstance(media_content, list):
-                content.extend(media_content)
-            else:
-                content.append(media_content)
-        
         response = model.generate_content(content)
         return response.text
     except Exception as e:
-        return f"API 调用错误: {str(e)}"
+        return f"Error: {str(e)}"
 
 # ==========================================
 # 5. 界面：信息采集
@@ -419,6 +474,7 @@ st.header("信息采集与素材上传")
 
 col_student, col_counselor, col_target = st.columns(3)
 
+# --- 第一栏：学生提供信息 ---
 with col_student:
     with st.container(border=True):
         st.markdown("### 学生提供信息")
@@ -427,6 +483,7 @@ with col_student:
         uploaded_material = st.file_uploader("文书素材/简历 (Word/PDF)", type=['docx', 'pdf'])
         uploaded_transcript = st.file_uploader("成绩单 (截图/PDF)", type=['png', 'jpg', 'jpeg', 'pdf'])
 
+# --- 第二栏：顾问指导意见 ---
 with col_counselor:
     with st.container(border=True):
         st.markdown("### 顾问指导意见")
@@ -438,6 +495,7 @@ with col_counselor:
             placeholder="例如：\n1. 强调量化背景\n2. 解释GPA劣势\n3. 突出某段实习的领导力..."
         )
 
+# --- 第三栏：目标专业信息 ---
 with col_target:
     with st.container(border=True):
         st.markdown("### 目标专业信息")
@@ -445,7 +503,7 @@ with col_target:
         
         target_school_name = st.text_input("目标学校 & 专业", placeholder="例如：UCL - MSc Business Analytics")
         
-        st.markdown("**课程设置**") 
+        st.markdown("**课程设置 (Curriculum)**") 
         
         tab_text, tab_img = st.tabs(["文本粘贴", "图片上传"])
         
@@ -455,6 +513,7 @@ with col_target:
         with tab_img:
             uploaded_curriculum_images = st.file_uploader("上传课程截图", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True, label_visibility="collapsed")
 
+# 读取素材文本
 student_background_text = ""
 if uploaded_material:
     if uploaded_material.name.endswith('.docx'):
@@ -463,12 +522,12 @@ if uploaded_material:
         student_background_text = read_pdf_text(uploaded_material)
 
 # ==========================================
-# 6. 界面：写作设定
+# 6. 界面：写作设定 (拼写偏好 & 模块选择)
 # ==========================================
 st.markdown("---")
 st.header("写作设定")
 
-display_order = ["Motivation", "Academic", "Internship", "Why_School", "Career_Goal"]
+# 模块标题映射
 modules = {
     "Motivation": "申请动机",
     "Academic": "本科学习",
@@ -489,24 +548,30 @@ col_modules, col_style = st.columns([3, 1])
 
 with col_modules:
     st.markdown("**选择模块 (点击切换选中状态):**")
+    # 使用列布局 + 按钮实现自定义 Toggle 效果
     mod_cols = st.columns(len(display_order))
     
     for idx, key in enumerate(display_order):
         is_selected = st.session_state['module_states'][key]
         label = modules[key]
+        
+        # 根据状态决定按钮类型 (Primary=蓝/白, Secondary=灰/灰)
         btn_type = "primary" if is_selected else "secondary"
         
+        # 在对应列渲染按钮
         if mod_cols[idx].button(label, key=f"btn_mod_{key}", type=btn_type, use_container_width=True):
+            # 点击后切换状态并刷新
             st.session_state['module_states'][key] = not st.session_state['module_states'][key]
             st.rerun()
 
+    # 计算最终选中的模块列表
     selected_modules = [key for key in display_order if st.session_state['module_states'][key]]
 
 with col_style:
     spelling_preference = st.radio(
-        "拼写偏好",
+        "拼写偏好 (Spelling)",
         ["英式 (British)", "美式 (American)"],
-        help="翻译时将严格遵循所选的拼写习惯"
+        help="翻译时将严格遵循所选的拼写习惯 (如 colour vs color)"
     )
 
 # ==========================================
@@ -517,30 +582,47 @@ st.header("一键点击创作")
 
 CLEAN_OUTPUT_RULES = """
 【绝对输出规则】
-1. 仅输出纯文本正文。
-2. 禁止包含任何开场白、结束语或元说明。
-3. 禁止使用任何Markdown格式（如标题、加粗、列表）。
-4. 将所有内容合并成一个单一、连贯的中文自然段。
+1. 只输出正文内容本身。
+2. 严禁包含开场白、结尾语或结构说明。
+3. 严禁使用 Markdown 格式（如加粗、列表符号、标题符号）。
+4. 输出必须是纯文本。
+5. 必须写成一个完整的、连贯的中文自然段。
 """
 
 TRANSLATION_RULES_BASE = """
-将提供的中文文本翻译成一段专业的、语气自然的英文个人陈述。
-一. 输出格式
-整体结构：输出为单一的、完整的纯文本段落。
-标点规则：所有逗号和句号必须置于闭合引号之外。
-禁止格式：禁止使用任何Markdown。
-二. 核心写作风格与规则
-【句子结构与叙事流】
-主语选择：优先使用人称主语。
-“, verb-ing”结构：谨慎使用“, verb-ing”的句式。
-分号使用：适度使用分号连接紧密相关的观点。
-过渡语使用：尽量添加多样的过渡短语。
-【词汇与语气】
-简洁词汇：使用精准、简单的词语。
-三. 绝对禁止项
-禁止句式：严禁使用“I did X, thereby/thus/enabling me to do Y”结构。
-禁止副词组合：完全禁止“副词+动词”和“副词+形容词”用法。
-禁止词汇清单：严格禁止使用以下词汇: delve into, uncover, master, cultivate, address, bridge, spearhead, pioneer, align with, stems from, underscore, highlight, pivotal, seamless, systematically, rigorously, profoundly, deeply, acutely, keenly, comprehensively, perfectly, meticulously, proficiency, Additionally, paradigm, trajectory, aspirations, vision, landscape, tapestry, realm, foundation, tenure, testament, commitment, thereby, thus, in turn, "not only... but also", "Building on this", "rich tapestry", "testament to", "a wide array of", "my goal is to", "focus will be"
+【Translation Task】
+Translate the provided Chinese text into a professional, human-sounding Personal Statement paragraph.
+
+【CRITICAL ANTI-AI STYLE GUIDE】
+1. **KILL THE "AI SENTENCE PATTERN"**: 
+   - **ABSOLUTELY FORBIDDEN**: The pattern "I did X, **thereby/thus/enabling** me to do Y." 
+   - **SOLUTION**: Split into two sentences or use active verbs.
+
+2. **SEMICOLONS (;) FOR FLOW**:
+   - **MANDATORY**: When a sentence is grammatically complete but the thought is not finished (and leads directly into the next point), use a **semicolon (;)** to connect them.
+
+3. **ADVERB CONTROL (ZERO TOLERANCE)**:
+   - **STRICTLY PROHIBITED**: The combination of **Adverb + Verb** (e.g., "deeply analyze", "successfully completed") OR **Adverb + Adjective** (e.g., "perfectly align", "keenly interested").
+   - **ACTION**: Delete the adverb entirely. Just use the verb or adjective.
+
+4. **VOCABULARY PURGE**: 
+   - Use precise, simple words.
+
+5. **ENHANCE COHESION & NARRATIVE FLOW (CRITICAL)**: 
+   - **MANDATORY**: You MUST actively add varied transitional phrases and logical connectors (e.g., "Furthermore," "In contrast," "Consequently," "Given this context") between sentences AND between paragraphs.
+   - **GOAL**: Ensure the text flows smoothly as a unified narrative, not a disjointed list of sentences. The priority is reading fluency and the overall integrity of the article.
+
+【BANNED WORDS LIST (Strictly Prohibited)】
+[Verbs]: delve into, uncover, reveal, recognize, master, refine, cultivate, address, bridge, spearhead, pioneer, align with, stems from, underscore, highlight
+[Adjectives/Adverbs]: instrumental, pivotal, seamless, systematically, rigorously, profoundly, deeply, acutely, keenly, comprehensively, perfectly, meticulously, proficiency, Additionally
+[Nouns]: paradigm, trajectory, aspirations, vision, landscape, tapestry, realm, foundation, tenure, testament, commitment
+[Connectors]: thereby, thus (when used with -ing), in turn
+[Phrases]: "not only... but also", "Building on this", "rich tapestry", "testament to", "a wide array of", "my goal is to"， “focus will be”
+
+【Formatting】
+1. Output as ONE single paragraph.
+2. Output the ENTIRE text in **Bold**.
+3. No Markdown headers.
 """
 
 if st.button("开始生成初稿", type="primary"):
@@ -558,7 +640,7 @@ if st.button("开始生成初稿", type="primary"):
         st.warning("请至少选择一个写作模块。")
         st.stop()
     
-    # 稳健性优化：处理图片时增加异常捕获和压缩
+    # 准备媒体
     transcript_content = []
     if uploaded_transcript.type == "application/pdf":
         transcript_content.append({
@@ -566,38 +648,27 @@ if st.button("开始生成初稿", type="primary"):
             "data": uploaded_transcript.getvalue()
         })
     else:
-        try:
-            transcript_content.append(process_image(uploaded_transcript))
-        except Exception as e:
-            st.error(f"处理成绩单图片时出错: {e}")
-            st.stop()
+        transcript_content.append(Image.open(uploaded_transcript))
 
     curriculum_imgs = []
     if uploaded_curriculum_images:
         for img_file in uploaded_curriculum_images:
-            try:
-                curriculum_imgs.append(process_image(img_file))
-            except Exception as e:
-                st.warning(f"跳过一张损坏的课程图片: {e}")
+            curriculum_imgs.append(Image.open(img_file))
     
     progress_bar = st.progress(0)
-    status_container = st.empty()
-    detail_container = st.empty()
     
     total_steps = len(selected_modules)
     current_step = 0
     
-    st.session_state['generated_sections'] = {} 
+    st.session_state['generated_sections'] = {} # 清空旧内容
 
-    # Prompt 定义 (Update: Motivation Logic)
+    # --- Prompt 定义 ---
+    # 🔴 修改：使用 HTML 列表 (ul/li) 格式指令，解决对齐问题；使用 div 和 inline CSS 精确控制行间距
     prompt_motivation = f"""
-    【任务】撰写 Personal Statement 的 "申请动机" (Motivation) 部分。
-    
-    【步骤 1：深度调研 (Research)】
-    请综合分析以下两点：
-    1. {target_school_name} 所在领域的最新行业热点或学术趋势。
-    2. **学生素材中的【实习/工作经历】或【科研项目】**（分析学生过去的经历涉及了哪些具体细分领域）。
-    请找到两者的**交集**，列出至少1个**既是当前行业前沿，又是学生在其过往经历中有所接触或产生过兴趣**的关键趋势，并严格按照以下 **HTML 格式** 输出（除文献/报告标题保留原文外，其余分析内容请使用**中文**）：
+    【任务】撰写 Personal Statement 的 "申请动机" 部分。
+    【步骤 1：深度调研】
+    请先分析 {target_school_name} 所在领域的最新行业热点或学术趋势。
+    **请严格列出 3 个关键趋势 (Options)**，并严格按照以下 **HTML 格式** 输出（除文献/报告标题保留原文外，其余分析内容请使用**中文**）：
 
     <div style="margin-bottom: 18px;">
         <div style="font-weight: bold; font-size: 14px; margin-bottom: 6px;">Option [X]: [Trend Title]</div>
@@ -607,18 +678,9 @@ if st.button("开始生成初稿", type="primary"):
         </ul>
     </div>
 
-    【步骤 2：撰写正文 (Drafting)】
-    **关键指令**：请从上述 3 个趋势中，**自主选择** 一个最能体现该专业价值的趋势作为核心切入点。
-    
-    **写作结构要求 (Strict Structure)**：
-    1.  **开门见山 (The Hook)**：写 1-2 句精准、犀利的话。直接概括“我希望通过硕士学习继续探索 [具体细分领域]”或“获得 [具体高阶知识]”。
-    2.  **行业洞察 (Industry Reflection)**：紧接着阐述你对该领域的深度思考。此处**必须**结合你选择的那个“调研趋势”进行议论，展示你对行业痛点或机遇的理解。
-    3.  **锁定目标 (The Match)**：最后总结，明确表达“因此，我希望通过 {target_school_name} 的 [项目名称] 来实现这一目的，也即我的深造需求”。
-    
-    **负面清单 (Constraints)**：
-    * **严禁**在这一段提及“我过去做了什么”、“我的本科经历”或“我的实习”。这些内容请留到后续段落，这里只谈未来目标和行业思考。
-    * 不用出现具体的文献名称或来源引用，将趋势内化为自己的观点。
-    
+    【步骤 2：撰写正文】
+    基于上述趋势和学生素材，撰写一段中文申请动机。动机正文中不用出现具体信息源，但要体现出学生对行业趋势的理解和契合。
+    逻辑：学生过往经历 -> 观察到的行业痛点/趋势 -> 产生深造需求。
     【严格输出格式】
     请严格按照下方分隔符输出，不要包含其他内容：
     [TRENDS_START]
@@ -635,10 +697,9 @@ if st.button("开始生成初稿", type="primary"):
     - 目标专业: {target_school_name}
     - 顾问思路: {counselor_strategy}
     【内容要求】
-    1. 核心视角：必须从应届毕业生的视角出发。
-    2. 文本中必须明确提及至少一个具体的公司名称（例如：Google, 腾讯, etc.）。
-    3. 文本中必须明确提及一个与该公司相匹配的具体的职位名称（例如：Data Scientist, Product Manager, etc.）。
-    4. 必须将该职位的预期工作内容与个人未来的学习深造方向紧密结合。
+    1. 规划硕士毕业后的路径（应届生视角）。
+    2. **必须包含**：具体的公司名字、具体的职位名称。
+    3. 将工作内容和未来继续学习方向融合在一段话中。
     {CLEAN_OUTPUT_RULES}
     """
 
@@ -648,14 +709,13 @@ if st.button("开始生成初稿", type="primary"):
     - 目标专业: {target_school_name}
     - 核心依据 (成绩单): 见附带文件 (PDF或图片)
     - 辅助参考 (学生素材/简历): 见附带文本
-    【Core Principle：深度优先】
-    仅精选2-3门与申请专业最相关的核心课程。
-    可以提及课程名称，但严禁仅停留在名称层面。课程名必须作为学术反思的载体自然融入文段
+    【核心原则：深度 > 数量】
+    不要罗列课程名。只精选与目标专业最强相关的核心课程进行深度描写。
     【内容要求 - 必须包含细节】
-    1. 专业锚点：准确引出该课程涉及的核心模型、算法、理论或关键术语。
-    2. 认知还原：结合具体素材，描述你对上述概念的独到理解、推导过程或实践应用。
-    3. 价值闭环：论证该课程沉淀的学术能力如何支撑你在 {target_school_name} 的后续学习计划。
-    4. 严禁使用 Bullet Points，必须是一段逻辑严密、首尾贯通的学术叙事（Academic Narrative）。
+    1. **核心概念植入**：在描述每门课时，必须提及该课程具体的**核心概念、模型、算法或理论名称**。
+    2. **学术真实感**：结合学生素材，简述是如何理解或应用这些概念的。
+    3. **逻辑升华**：说明这些具体的知识点如何为你攻读 {target_school_name} 打下了坚实的学术基础。
+    4. **禁止**：禁止写成课程清单（List），必须是连贯的学术反思叙述。
     {CLEAN_OUTPUT_RULES}
     """
 
@@ -667,14 +727,11 @@ if st.button("开始生成初稿", type="primary"):
     {f'【目标课程文本列表】:{target_curriculum_text}' if target_curriculum_text else ''}
     - 课程图片信息: 见附带图片
     【内容要求】
-    1. 多模态整合：综合解析提供的文本列表与图片信息，提取课程核心关键词。
-    2. 精准筛选：仅保留与申请目标强相关的课程；若为构建逻辑递进感所必需，可保留关键基础课。
-    3. 动态知识补全，若缺课程说明，需主动检索硕士级别的教学大纲，检索重点是该课程的核心方法论（Methodology）与前沿概念（Concepts）。
-    4. 深度叙事构建：
-        非线性罗列：严禁简单重复课程名。
-        逻辑升华：按“知识难度递进”或“学科内在逻辑”排列，体现从理论基础到复杂应用的认知过程。
-        学术还原：详细阐述具体的方法学、模型或理论，并解释其对学生的学术吸引力与实际帮助。
-    5. 语调约束：保持朴素、专业的学术笔调，以议论与反思为主（Argumentative & Reflective），拒绝浮夸口吻。
+    1. 综合分析提供的文本列表和图片中的课程信息。
+    2. 从中挑选与学生背景或规划最相关的特定课程，不相关的课程不用写。
+    3. 若所提供信息包含课程名字与课程说明则参考，若仅有课程名字但无课程说明则搜索该课程（硕士水平）的教学内容，并据此阐述这些课程为何吸引学生及有何帮助，阐述时需深入到该课程具体教授的方法学及概念。
+    4. 课程阐述需有深度，有逻辑顺序或难度递进关系，体现出对课程内容的理解，而非简单罗列课程名称。
+    5. 语气朴素专业，议论为主。
     {CLEAN_OUTPUT_RULES}
     """
 
@@ -684,18 +741,9 @@ if st.button("开始生成初稿", type="primary"):
     - 学生素材: 见附带文本
     - 目标专业: {target_school_name}
     【内容要求】
-    1. 精选叙事：仅挑选与目标专业最强相关的经历。严禁全量罗列，确保“质量”凌驾于“数量”
-    2. 线性逻辑：按时间先后顺序串联选定的经历，构建个人成长的进化路径。
-    3. 要素融合 (B-R-S-M)：每段经历须包含以下维度，但需自然揉合，拒绝机械填表：
-        Context (背景)：任务的起因或环境。
-        Responsibility (职责)：你承担的具体角色。
-        Skills (技能)：所运用的核心硬核能力。
-        Motivation (动机)：驱动你行动的内在逻辑及事后感悟。
-    4. 深度反思：
-        拒绝平铺直叙的任务描述（流水账）。
-        必须挖掘每项经历背后的学术/专业感悟。
-        明确指出该经历如何体现你与目标专业的契合度（Match Point）。
-    5. 语调要求：保持职场与学术兼具的专业笔调，以逻辑论证为叙述核心。
+    1. 筛选最相关经历，按时间顺序逻辑串联。
+    2. 结构：背景 -> 职责 -> 技能 -> 动机。
+    3. 拒绝流水账，要有逻辑梳理和反思，要有与所申请专业的契合点和相关的感悟。
     {CLEAN_OUTPUT_RULES}
     """
 
@@ -709,25 +757,18 @@ if st.button("开始生成初稿", type="primary"):
 
     for module in selected_modules:
         current_step += 1
-        
-        status_container.info(f"正在撰写: {modules[module]} ({current_step}/{total_steps})")
-        detail_container.markdown(f"**分析背景资料**，构建 {modules[module]} 部分...")
+        st.toast(f"正在撰写: {modules[module]} ...")
         
         current_media = None
         if module == "Academic":
             current_media = transcript_content
-            detail_container.markdown("**分析成绩单**，提取相关学术背景...")
         elif module == "Why_School":
             current_media = curriculum_imgs
-            detail_container.markdown("**分析课程信息**，匹配学生背景与课程优势...")
-        
-        detail_container.markdown("**撰写初稿中**，请稍候...")
         
         res = get_gemini_response(prompts_map[module], media_content=current_media, text_context=student_background_text)
         
         final_text = res.strip()
         
-        # 稳健性优化：处理解析失败的情况
         if module == "Motivation":
             try:
                 if "[TRENDS_START]" in res and "[DRAFT_START]" in res:
@@ -735,19 +776,15 @@ if st.button("开始生成初稿", type="primary"):
                     draft_part = res.split("[DRAFT_START]")[1].split("[DRAFT_END]")[0].strip()
                     st.session_state['motivation_trends'] = trends_part
                     final_text = draft_part
-                    detail_container.markdown("提取行业趋势，整合到申请动机...")
                 else:
                     final_text = res
-            except Exception as e:
-                # 兜底逻辑：如果分割出错，直接保留全文
+            except:
                 final_text = res
 
         st.session_state['generated_sections'][module] = final_text
         progress_bar.progress(current_step / total_steps)
-        detail_container.markdown(f"**{modules[module]}** 部分已完成！")
-        time.sleep(0.5)
 
-    detail_container.markdown("整合所有部分，生成完整草稿...")
+    # 将所有生成的部分合并成一个完整的中文草稿
     full_chinese_draft = ""
     for module in display_order:
         if module in st.session_state['generated_sections']:
@@ -755,20 +792,22 @@ if st.button("开始生成初稿", type="primary"):
             full_chinese_draft += st.session_state['generated_sections'][module] + "\n\n"
     st.session_state['full_chinese_draft'] = full_chinese_draft.strip()
     
+    # 清空可能存在的旧翻译
     st.session_state['full_translated_text'] = ""
+    
+    # 删除旧的key以强制刷新textarea
     if 'text_full_draft' in st.session_state:
         del st.session_state['text_full_draft']
     if 'text_full_translated' in st.session_state:
         del st.session_state['text_full_translated']
     
+    # 清空旧的页眉缓存，确保下次导出时重新生成
     if 'header_cn' in st.session_state:
         del st.session_state['header_cn']
     if 'header_en' in st.session_state:
         del st.session_state['header_en']
 
-    status_container.empty()
-    detail_container.empty()
-
+    # 🔴 修改：使用自定义 HTML 替代 st.success，实现圆角矩形、宝蓝背景、白色字体
     st.markdown(f"""
     <div style="
         background-color: #3666FA; 
@@ -791,93 +830,31 @@ if st.session_state.get('full_chinese_draft'):
     st.markdown("---")
     st.header("审阅与翻译")
     
-    render_blue_box("满意左侧中文稿后，点击翻译按钮生成翻译。")
+    # 使用自定义蓝色圆角框
+    render_blue_box("满意左侧中文稿后，点击上方按钮生成翻译。")
 
     if st.session_state.get('motivation_trends'):
         with st.expander("点击查看：行业趋势调研与参考源 (Reference)", expanded=True):
+            # 使用自定义蓝色圆角框显示 Trends
             render_blue_box(st.session_state['motivation_trends'])
+    
+    # ---------------- UI 结构修改 ----------------
+    # 目标：
+    # 1. 移除左右分栏 (c1, c2)，使中文编辑框占据全宽。
+    # 2. 将翻译按钮移到中文编辑框上方。
+    # 3. 英文编辑框放在中文编辑框下方，也占据全宽。
+    # 4. 去除 icon。
     
     style_text = "British" if "British" in spelling_preference else "American"
     
-    button_row = st.columns([1, 1, 1])
-    with button_row[0]:
-        translate_button = st.button(f"翻译全文 ({style_text})", key="translate_btn")
-    
-    with button_row[2]:
-        if st.session_state.get('full_translated_text'):
-            english_edit_button = st.button("执行英文批注修改", key="english_edit_btn")
-    
-    c1, c2 = st.columns(2)
-    
-    # --- 左侧：中文编辑 ---
-    with c1:
-        st.markdown("**中文草稿 (可编辑)**")
-        
-        if 'text_full_draft' not in st.session_state:
-            st.session_state['text_full_draft'] = st.session_state['full_chinese_draft']
-        
-        current_chinese_content = st.text_area(
-            "中文内容", 
-            key="text_full_draft",
-            height=600
-        )
-        st.session_state['full_chinese_draft'] = current_chinese_content
-        
-        render_blue_box("批注修改: 在想改的句子后面用 【修改意见】 给出指令。")
-        
-        if st.button("执行中文批注修改", key="chinese_edit_btn"):
-            if "【" not in current_chinese_content:
-                st.warning("未检测到【】。请在上方文本框中插入 `【修改意见】` 后再点击。")
-            else:
-                with st.spinner("正在根据批注修改并高亮变化..."):
-                    inline_prompt = f"""
-                    【任务】作为专业留学文书编辑，根据文中的嵌入式批注（中文方括号【】内的文字）修改文章。
-                    【输入文本】\n{current_chinese_content}
-                    【执行步骤】
-                    1. 扫描文中所有的中文方括号 `【】`。括号内的文字即为用户的修改指令。
-                    2. 根据指令，修改括号紧邻的前文句子或段落。
-                    3. **必须删除**原文中的括号及括号内的修改指令。
-                    4. 保持未被批注的部分原封不动。
-                    5. **高亮变化**：将**所有被修改后产生的新文字**用 Markdown 双星号 `**` 包裹（例如：**new text**），以便用户一眼看出改了哪里。
-                    {CLEAN_OUTPUT_RULES}
-                    """
-                    revised_text = get_gemini_response(inline_prompt)
-                    
-                    st.session_state['full_chinese_draft'] = revised_text.strip()
-                    if 'text_full_draft' in st.session_state:
-                        del st.session_state['text_full_draft'] 
-                    st.session_state['full_translated_text'] = ""
-                    if 'text_full_translated' in st.session_state:
-                        del st.session_state['text_full_translated']
-                    st.rerun()
+    # 1. 翻译按钮行 (放在中文内容上方)
+    # 使用 cols 控制按钮宽度，使其不要太宽
+    btn_col, _ = st.columns([1, 4])
+    with btn_col:
+        translate_btn_clicked = st.button(f"翻译全文 ({style_text})")
 
-    # --- 右侧：英文翻译 ---
-    with c2:
-        st.markdown("**英文翻译结果 (可编辑)**")
-        
-        if st.session_state.get('full_translated_text'):
-            if 'text_full_translated' not in st.session_state:
-                st.session_state['text_full_translated'] = st.session_state['full_translated_text']
-
-            current_english_content = st.text_area(
-                "英文内容",
-                key="text_full_translated",
-                height=600
-            )
-            st.session_state['full_translated_text'] = current_english_content
-
-            render_blue_box("批注修改: 在想改的句子后面用 【修改意见】 给出指令。")
-        else:
-            st.text_area(
-                "等待翻译...",
-                value="点击上方的翻译按钮生成英文翻译。",
-                height=600,
-                disabled=True
-            )
-            render_blue_box("满意左侧中文稿后，点击上方按钮生成翻译。")
-    
-    # 翻译逻辑
-    if translate_button:
+    # 处理翻译逻辑
+    if translate_btn_clicked:
         if not api_key:
             st.error("需要 API Key")
         else:
@@ -904,47 +881,120 @@ if st.session_state.get('full_chinese_draft'):
                 if 'text_full_translated' in st.session_state:
                     del st.session_state['text_full_translated']
                 st.rerun()
+
+    # 2. 中文编辑区域 (全宽)
+    st.markdown("**中文草稿 (可编辑)**")
     
-    # 英文修改逻辑
-    if st.session_state.get('full_translated_text') and 'english_edit_button' in locals() and english_edit_button:
-        with st.spinner("正在根据您的批注优化英文文本..."):
-            current_english_content = st.session_state['full_translated_text']
-            english_edit_prompt = f"""
-            【任务】你是一位顶尖的留学文书编辑。请根据用户在英文文本中嵌入的中文，对文章进行修改和润色。
+    if 'text_full_draft' not in st.session_state:
+        st.session_state['text_full_draft'] = st.session_state['full_chinese_draft']
+    
+    # 调大高度至 800
+    current_chinese_content = st.text_area(
+        "中文内容", 
+        key="text_full_draft",
+        height=800, 
+        label_visibility="collapsed" # 隐藏 label，因为上面已经有 markdown 标题
+    )
+    st.session_state['full_chinese_draft'] = current_chinese_content
+    
+    # 批注说明
+    render_blue_box("批注修改: 在想改的句子后面用 【修改意见】 给出指令。")
+    
+    if st.button("执行中文批注修改"):
+        if "【" not in current_chinese_content:
+            st.warning("未检测到【】。请在上方文本框中插入 `【修改意见】` 后再点击。")
+        else:
+            with st.spinner("正在根据批注修改并高亮变化..."):
+                inline_prompt = f"""
+                【任务】作为专业留学文书编辑，根据文中的嵌入式批注（中文方括号【】内的文字）修改文章。
+                【输入文本】\n{current_chinese_content}
+                【执行步骤】
+                1. 扫描文中所有的中文方括号 `【】`。括号内的文字即为用户的修改指令。
+                2. 根据指令，修改括号紧邻的前文句子或段落。
+                3. **必须删除**原文中的括号及括号内的修改指令。
+                4. 保持未被批注的部分原封不动。
+                5. **高亮变化**：将**所有被修改后产生的新文字**用 Markdown 双星号 `**` 包裹（例如：**new text**），以便用户一眼看出改了哪里。
+                {CLEAN_OUTPUT_RULES}
+                """
+                revised_text = get_gemini_response(inline_prompt)
+                
+                st.session_state['full_chinese_draft'] = revised_text.strip()
+                if 'text_full_draft' in st.session_state:
+                    del st.session_state['text_full_draft'] 
+                st.session_state['full_translated_text'] = ""
+                if 'text_full_translated' in st.session_state:
+                    del st.session_state['text_full_translated']
+                st.rerun()
 
-            【输入文本及批注】
-            {current_english_content}
+    # 3. 英文编辑区域 (全宽，放在中文下方)
+    st.markdown("---") # 分割线
+    st.markdown("**英文翻译结果 (可编辑)**")
+    
+    if st.session_state.get('full_translated_text'):
+        if 'text_full_translated' not in st.session_state:
+            st.session_state['text_full_translated'] = st.session_state['full_translated_text']
 
-            【批注规则说明】
-            1.  **修改指令 `【中文内容】`**: 如果发现中文被中文方括号 `【】` 包围，这代表一条修改指令。请根据指令内容，修改它前面的英文句子。
-            2.  **翻译并插入**: 如果发现一段中文**没有被任何括号包围**，请将这段中文翻译成地道的英文，并无缝地插入到文本的那个位置。
+        # 调大高度至 800
+        current_english_content = st.text_area(
+            "英文内容",
+            key="text_full_translated",
+            height=800,
+            label_visibility="collapsed"
+        )
+        st.session_state['full_translated_text'] = current_english_content
 
-            【核心风格指令】
-            所有的修改和翻译都必须严格遵守以下【ANTI-AI STYLE GUIDE】。
-            {TRANSLATION_RULES_BASE}
+        render_blue_box("批注修改: 在想改的句子后面用 【修改意见】 给出指令。")
 
-            【输出要求】
-            1.  完成所有修改和翻译。
-            2.  **必须删除**原文中所有的中文内容和 `【】` 括号。
-            3.  **必须保留**所有的分段标题（例如 `--- Motivation ---`）。
-            4.  将**所有被修改或新增的英文部分**用 Markdown 双星号 `**` 包裹，以便用户识别。
-            5.  最终输出完整的、保留了分段结构的英文文本。
-            """
-            revised_english_text = get_gemini_response(english_edit_prompt)
-            st.session_state['full_translated_text'] = revised_english_text.strip()
-            if 'text_full_translated' in st.session_state:
-                del st.session_state['text_full_translated']
-            st.rerun()
+        if st.button("执行英文批注修改"):
+            with st.spinner("正在根据您的批注优化英文文本..."):
+                english_edit_prompt = f"""
+                【任务】你是一位顶尖的留学文书编辑。请根据用户在英文文本中嵌入的中文，对文章进行修改和润色。
+
+                【输入文本及批注】
+                {current_english_content}
+
+                【批注规则说明】
+                1.  **修改指令 `【中文内容】`**: 如果发现中文被中文方括号 `【】` 包围，这代表一条修改指令。请根据指令内容，修改它前面的英文句子。
+                2.  **翻译并插入**: 如果发现一段中文**没有被任何括号包围**，请将这段中文翻译成地道的英文，并无缝地插入到文本的那个位置。
+
+                【核心风格指令】
+                所有的修改和翻译都必须严格遵守以下【ANTI-AI STYLE GUIDE】。
+                {TRANSLATION_RULES_BASE}
+
+                【输出要求】
+                1.  完成所有修改和翻译。
+                2.  **必须删除**原文中所有的中文内容和 `【】` 括号。
+                3.  **必须保留**所有的分段标题（例如 `--- Motivation ---`）。
+                4.  将**所有被修改或新增的英文部分**用 Markdown 双星号 `**` 包裹，以便用户识别。
+                5.  最终输出完整的、保留了分段结构的英文文本。
+                """
+                revised_english_text = get_gemini_response(english_edit_prompt)
+                st.session_state['full_translated_text'] = revised_english_text.strip()
+                if 'text_full_translated' in st.session_state:
+                    del st.session_state['text_full_translated']
+                st.rerun()
+    else:
+        # 占位符，保持布局稳定
+        st.text_area(
+            "等待翻译...",
+            value="点击上方的翻译按钮生成英文翻译。",
+            height=200,
+            disabled=True,
+            label_visibility="collapsed"
+        )
 
 # ==========================================
-# 9. 导出
+# 9. 导出 (Word 下载)
 # ==========================================
 if st.session_state.get('full_chinese_draft'):
     st.markdown("---")
     st.header("导出")
     
+    # 智能页眉生成逻辑
+    # 检查是否已经生成过页眉，如果没有，则调用 AI 解析 target_school_name
     if 'header_cn' not in st.session_state or 'header_en' not in st.session_state:
         if target_school_name:
+            # 简单的 AI 调用来格式化页眉
             header_prompt = f"""
             Task: Parse and format the university and major information from the string: "{target_school_name}".
             
@@ -965,9 +1015,11 @@ if st.session_state.get('full_chinese_draft'):
                     st.session_state['header_cn'] = parts[0].strip()
                     st.session_state['header_en'] = parts[1].strip()
                 else:
+                    # Fallback
                     st.session_state['header_cn'] = f"{target_school_name} 个人陈述"
                     st.session_state['header_en'] = f"Personal Statement for {target_school_name}"
             except:
+                # Fallback on error
                 st.session_state['header_cn'] = f"{target_school_name} 个人陈述"
                 st.session_state['header_en'] = f"Personal Statement for {target_school_name}"
         else:
@@ -976,9 +1028,11 @@ if st.session_state.get('full_chinese_draft'):
 
     col_dl_cn, col_dl_en = st.columns(2)
     
+    # --- 1. 中文版下载 ---
     with col_dl_cn:
         st.subheader("中文版")
         if st.session_state.get('full_chinese_draft'):
+            # 生成中文 Word
             cn_header_text = st.session_state.get('header_cn', f"{target_school_name} 个人陈述")
             docx_cn_bytes = create_word_docx(
                 content=st.session_state['full_chinese_draft'],
@@ -997,9 +1051,11 @@ if st.session_state.get('full_chinese_draft'):
         else:
             st.caption("暂无中文内容")
 
+    # --- 2. 英文版下载 ---
     with col_dl_en:
         st.subheader("英文版")
         if st.session_state.get('full_translated_text'):
+            # 生成英文 Word
             en_header_text = st.session_state.get('header_en', f"Personal Statement for {target_school_name}")
             docx_en_bytes = create_word_docx(
                 content=st.session_state['full_translated_text'],
