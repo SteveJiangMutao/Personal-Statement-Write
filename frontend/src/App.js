@@ -531,7 +531,6 @@ function App() {
                     <div className="form-group" style={{ marginTop: '1rem' }}>
                       <label>或手动输入课外经历：</label>
                       <textarea
-                        className="small-text"
                         value={manualExperiences}
                         onChange={(e) => setManualExperiences(e.target.value)}
                         placeholder="例如：实习：XX公司，数据分析实习生，2023.06-2023.09，负责数据清洗..."
@@ -539,21 +538,6 @@ function App() {
                       />
                     </div>
 
-                    {/* Analyze experiences button */}
-                    <div className="form-group">
-                      <button
-                        className="button"
-                        onClick={handleAnalyzeExperiences}
-                        disabled={isAnalyzing || !targetSchoolName || (!materialFile && !manualExperiences.trim())}
-                      >
-                        {isAnalyzing ? (
-                          <>
-                            <span className="spinner"></span>
-                            分析中...
-                          </>
-                        ) : '分析经历与课程匹配'}
-                      </button>
-                    </div>
 
                     {/* Analysis results display */}
                     {analysisResults.researchInsights && (
@@ -647,6 +631,22 @@ function App() {
                           )}
                         </label>
                       </div>
+
+                    {/* Analyze experiences button */}
+                    <div className="form-group" style={{ marginTop: '1rem' }}>
+                      <button
+                        className="button"
+                        onClick={handleAnalyzeExperiences}
+                        disabled={isAnalyzing || !targetSchoolName || (!materialFile && !manualExperiences.trim())}
+                      >
+                        {isAnalyzing ? (
+                          <>
+                            <span className="spinner"></span>
+                            分析中...
+                          </>
+                        ) : '分析经历与课程匹配'}
+                      </button>
+                    </div>
                     </div>
                   </div>
                 </div>

@@ -129,7 +129,7 @@ select {
   border: 1px solid rgba(54, 102, 250, 0.3);
   border-radius: 8px;
   background-color: #ffffff;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   line-height: var(--line-height-relaxed);
   color: #1e293b;
   transition: all 0.2s ease;
