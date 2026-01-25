@@ -236,7 +236,26 @@ CLEAN_OUTPUT_RULES = """
 
 TRANSLATION_RULES_BASE = """
 【Translation Task】
-Translate the provided Chinese text into a professional, human-sounding Personal Statement paragraph.
+Translate the provided Chinese text into a professional, human-sounding Personal Statement paragraph that balances academic rigor with narrative flow.
+
+【CRITICAL TRANSLATION GUIDELINES】
+1. **WRITING STYLE**: Balance academic professionalism with narrative fluency. Avoid purely storytelling jumps while also avoiding overly formal thesis-like language. The tone should be professional yet engaging.
+
+2. **TECHNICAL TERMINOLOGY**: Preserve specialized terminology and translate it accurately. Ensure all domain-specific terms are correctly translated and maintain their precise meaning.
+
+3. **PARAGRAPH STRUCTURE**: Maintain the original paragraph structure from the Chinese text. Do not combine or split paragraphs unless absolutely necessary for grammatical correctness.
+
+4. **CITATIONS & REFERENCES**: Preserve any citation formats, references, or source mentions in their original form. Do not translate or modify citation styles.
+
+5. **NATURAL TRANSLATION**: Focus on accuracy and clarity rather than excessive stylistic embellishment. Prioritize faithful representation of the original meaning while ensuring natural English flow.
+
+6. **"COMMA + VERB-ING" CONTROL**: AI models often overuse the "comma + verb-ing" structure (e.g., ", revealing trends"). Do not strictly ban it, as it is valid in academic English, but **use it sparingly** to avoid a repetitive "AI tone." Instead, prioritize variety by using relative clauses (e.g., ", which revealed..."), coordination (e.g., "and revealed..."), or starting new sentences where appropriate for better flow.
+
+7. **REMOVE MARKDOWN**: Remove all Markdown formatting symbols like asterisks (*), double asterisks (**), underscores (_), etc. from the output. Provide clean text without any Markdown formatting.
+
+8. **PUNCTUATION WITH QUOTATION MARKS**: For general text (not formal citations), always place commas, periods, and other punctuation marks OUTSIDE of quotation marks, not inside. For example, use "example", not "example,". For formal citations, maintain the original citation style's punctuation rules.
+
+9. **NAMES CAPITALIZATION**: Always properly capitalize all personal names, organizational names, and proper nouns. Ensure that all names of people, institutions, theories named after people, etc. are correctly capitalized in the English translation.
 
 【CRITICAL ANTI-AI STYLE GUIDE】
 1. **KILL THE "AI SENTENCE PATTERN"**:
@@ -251,7 +270,7 @@ Translate the provided Chinese text into a professional, human-sounding Personal
    - **ACTION**: Delete the adverb entirely. Just use the verb or adjective.
 
 4. **VOCABULARY PURGE**:
-   - Use precise, simple words.
+   - Use precise, simple words. Avoid unnecessary complexity.
 
 5. **ENHANCE COHESION & NARRATIVE FLOW (CRITICAL)**:
    - **MANDATORY**: You MUST actively add varied transitional phrases and logical connectors (e.g., "Furthermore," "In contrast," "Consequently," "Given this context") between sentences AND between paragraphs.
@@ -264,10 +283,11 @@ Translate the provided Chinese text into a professional, human-sounding Personal
 [Connectors]: thereby, thus (when used with -ing), in turn
 [Phrases]: "not only... but also", "Building on this", "rich tapestry", "testament to", "a wide array of", "my goal is to"， "focus will be"
 
-【Formatting】
-1. Output as ONE single paragraph.
-2. Output the ENTIRE text in **Bold**.
-3. No Markdown headers.
+【OUTPUT REQUIREMENTS】
+1. Provide ONLY the translated English text without explanations, comments, or any Markdown formatting symbols.
+2. Output as ONE single paragraph (unless the original text has clear multiple paragraph structure).
+3. Output the ENTIRE text in **Bold** (this rule overrides the "Remove Markdown" rule for bold formatting only).
+4. No Markdown headers, bullet points, or numbered lists in the output.
 """
 
 def get_prompt_motivation(target_school_name: str) -> str:
