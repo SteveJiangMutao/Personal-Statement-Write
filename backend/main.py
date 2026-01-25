@@ -87,6 +87,17 @@ class WordGenerationRequest(BaseModel):
     is_chinese: bool = False
     font_name: str = "宋体"
 
+class ExperienceAnalysisRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    api_key: str = ""
+    model_name: str = "gemini-2.5-pro"
+    target_school_name: str
+    curriculum_text: Optional[str] = None
+    # Files will be handled separately as multipart form data
+    material_file: Optional[Any] = None
+    manual_experiences: Optional[str] = None
+
 # ==========================================
 # 2. 核心辅助函数 (从原 psw.py 移植)
 # ==========================================
@@ -347,6 +358,94 @@ def get_prompt_internship(target_school_name: str) -> str:
     {CLEAN_OUTPUT_RULES}
     """
 
+def get_prompt_extract_experiences() -> str:
+    """提取简历/素材中的课外经历"""
+    return """
+    【任务】从提供的简历或文书素材文本中提取学生的课外经历。
+
+    【要求】
+    1. 仔细阅读文本，识别出所有课外经历，包括但不限于：
+       - 实习经历 (Internships)
+       - 工作经历 (Work Experience)
+       - 科研项目 (Research Projects)
+       - 社会活动 (Social Activities)
+       - 志愿工作 (Volunteer Work)
+       - 竞赛获奖 (Competition Awards)
+       - 社团领导 (Club Leadership)
+       - 其他相关经历
+    2. 为每段经历提取以下信息：
+       - 经历类型（实习/工作/科研等）
+       - 时间（起止时间或持续时间）
+       - 组织/公司/学校名称
+       - 职位/角色
+       - 主要职责和成就
+       - 获得的技能或能力
+    3. 以清晰的列表格式输出，每段经历用分隔线隔开。
+    4. 只提取事实信息，不要添加分析或评论。
+    """
+
+def get_prompt_match_experiences_curriculum(target_school_name: str, curriculum_text: str, experiences_text: str) -> str:
+    """匹配经历与课程设置，找到交集"""
+    return f"""
+    【任务】分析学生的课外经历与目标学校课程设置的交集，并识别最匹配的方向。
+
+    【输入信息】
+    - 目标学校: {target_school_name}
+    - 课程设置: {curriculum_text if curriculum_text else "见附带图片"}
+    - 学生课外经历: {experiences_text}
+
+    【分析要求】
+    1. 首先分析课程设置，识别出核心课程、专业方向、技能要求、理论框架。
+    2. 分析学生经历，识别其中体现的技能、知识领域、实践经验、研究兴趣。
+    3. 找到经历与课程之间的具体交集点，例如：
+       - 某段实习中使用的技能与某门课程教授的技术匹配
+       - 科研项目的研究方向与某个专业方向一致
+       - 工作经历中的行业经验与课程中的案例研究相关
+    4. 评估每个交集的匹配度和深度。
+
+    【输出要求】
+    1. 列出3-5个最匹配的交集点。
+    2. 对每个交集点，说明：
+       - 匹配的具体课程或课程模块
+       - 相关的学生经历
+       - 匹配的理由和深度
+    3. 输出格式简洁清晰。
+    """
+
+def get_prompt_research_insights(target_school_name: str, matched_intersections: str) -> str:
+    """基于匹配的交集进行行业和学术前沿调研"""
+    return f"""
+    【任务】基于学生经历与课程设置的匹配点，进行行业前沿和学术前沿调研，输出3个最匹配的洞察和方向。
+
+    【输入信息】
+    - 目标学校: {target_school_name}
+    - 匹配的交集点: {matched_intersections}
+
+    【调研要求】
+    1. 行业前沿调研：
+       - 分析相关行业的最新趋势、技术发展、市场需求
+       - 识别当前行业面临的挑战和机遇
+       - 考虑未来3-5年的发展趋势
+    2. 学术前沿调研：
+       - 分析相关学术领域的最新研究成果、理论发展
+       - 识别热门研究方向和前沿课题
+       - 考虑跨学科的研究机会
+    3. 结合匹配点，提出具体的洞察和方向：
+       - 每个洞察应结合学生的具体经历和课程特点
+       - 提出可行的学习方向或研究课题
+       - 说明该方向对学生职业或学术发展的价值
+
+    【输出要求】
+    1. 输出3个最匹配的洞察和方向。
+    2. 每个洞察包含：
+       - 洞察标题
+       - 行业/学术前沿分析
+       - 与匹配点的具体联系
+       - 建议的学习或研究方向
+       - 预期价值或影响
+    3. 洞察应具有前瞻性、具体性和可行性。
+    """
+
 # 模块映射
 modules = {
     "Motivation": "申请动机",
@@ -482,6 +581,94 @@ async def generate_personal_statement(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+
+@app.post("/api/analyze-experiences")
+async def analyze_experiences(
+    api_key: str = Form(""),
+    model_name: str = Form("gemini-2.5-pro"),
+    target_school_name: str = Form(...),
+    curriculum_text: Optional[str] = Form(None),
+    curriculum_files: Optional[List[UploadFile]] = File([]),
+    material_file: Optional[UploadFile] = File(None),
+    manual_experiences: Optional[str] = Form(None),
+):
+    """分析学生经历，匹配课程设置，输出调研洞察"""
+    try:
+        # 1. 处理课程图片（如果有）
+        curriculum_imgs = []
+        if curriculum_files:
+            for img_file in curriculum_files:
+                file_bytes = await img_file.read()
+                curriculum_imgs.append(Image.open(io.BytesIO(file_bytes)))
+
+        # 2. 提取课外经历（从文件或手动输入）
+        experiences_text = ""
+
+        if material_file:
+            # 从文件提取文本
+            file_bytes = await material_file.read()
+            if material_file.filename.endswith('.docx'):
+                material_text = read_word_file(file_bytes)
+            elif material_file.filename.endswith('.pdf'):
+                material_text = read_pdf_text(file_bytes)
+            else:
+                return JSONResponse(
+                    content={"success": False, "error": "只支持 .docx 或 .pdf 文件"},
+                    status_code=400
+                )
+
+            # 调用Gemini提取经历
+            extract_prompt = get_prompt_extract_experiences()
+            experiences_text = get_gemini_response(
+                api_key=api_key,
+                model_name=model_name,
+                prompt=extract_prompt,
+                text_context=material_text
+            )
+        elif manual_experiences:
+            # 直接使用手动输入的经历
+            experiences_text = manual_experiences
+        else:
+            return JSONResponse(
+                content={"success": False, "error": "请提供文件或手动输入课外经历"},
+                status_code=400
+            )
+
+        # 2. 匹配经历与课程设置
+        match_prompt = get_prompt_match_experiences_curriculum(
+            target_school_name=target_school_name,
+            curriculum_text=curriculum_text or "",
+            experiences_text=experiences_text
+        )
+
+        matched_intersections = get_gemini_response(
+            api_key=api_key,
+            model_name=model_name,
+            prompt=match_prompt,
+            media_content=curriculum_imgs if curriculum_imgs else None
+        )
+
+        # 3. 进行调研并输出洞察
+        research_prompt = get_prompt_research_insights(
+            target_school_name=target_school_name,
+            matched_intersections=matched_intersections
+        )
+
+        research_insights = get_gemini_response(
+            api_key=api_key,
+            model_name=model_name,
+            prompt=research_prompt
+        )
+
+        return JSONResponse(content={
+            "success": True,
+            "extracted_experiences": experiences_text,
+            "matched_intersections": matched_intersections,
+            "research_insights": research_insights
+        })
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"经历分析失败: {str(e)}")
 
 @app.post("/api/translate")
 async def translate_content(request: TranslationRequest):

@@ -53,6 +53,15 @@ function App() {
   const [fullTranslatedText, setFullTranslatedText] = useState('');
   const [headers, setHeaders] = useState({ cn: '', en: '' });
 
+  // State for experience analysis
+  const [manualExperiences, setManualExperiences] = useState('');
+  const [analysisResults, setAnalysisResults] = useState({
+    extractedExperiences: '',
+    matchedIntersections: '',
+    researchInsights: ''
+  });
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
   // State for UI
   const [loading, setLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -186,6 +195,67 @@ function App() {
     } finally {
       setLoading(false);
       setLoadingProgress(0);
+    }
+  };
+
+  // Analyze experiences and match with curriculum
+  const handleAnalyzeExperiences = async () => {
+    // Validation
+    if (!targetSchoolName) {
+      alert('请输入目标学校与专业');
+      return;
+    }
+
+    if (!materialFile && !manualExperiences.trim()) {
+      alert('请上传文书素材/简历文件或手动输入课外经历');
+      return;
+    }
+
+    setIsAnalyzing(true);
+
+    const formData = new FormData();
+    formData.append('api_key', ''); // API key is now set via environment variable
+    formData.append('model_name', modelName);
+    formData.append('target_school_name', targetSchoolName);
+
+    if (curriculumText) {
+      formData.append('curriculum_text', curriculumText);
+    }
+
+    curriculumFiles.forEach((file, index) => {
+      formData.append('curriculum_files', file);
+    });
+
+    if (materialFile) {
+      formData.append('material_file', materialFile);
+    }
+
+    if (manualExperiences.trim()) {
+      formData.append('manual_experiences', manualExperiences);
+    }
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/analyze-experiences`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      if (response.data.success) {
+        setAnalysisResults({
+          extractedExperiences: response.data.extracted_experiences,
+          matchedIntersections: response.data.matched_intersections,
+          researchInsights: response.data.research_insights
+        });
+        showToast('✅ 经历分析与调研完成！');
+      } else {
+        alert('分析失败: ' + (response.data.error || '未知错误'));
+      }
+    } catch (error) {
+      console.error('Analysis error:', error);
+      alert('分析失败: ' + (error.response?.data?.detail || error.message));
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -457,6 +527,75 @@ function App() {
                         )}
                       </label>
                     </div>
+
+                    {/* Manual experiences input */}
+                    <div className="form-group" style={{ marginTop: '1rem' }}>
+                      <label>或手动输入课外经历：</label>
+                      <textarea
+                        value={manualExperiences}
+                        onChange={(e) => setManualExperiences(e.target.value)}
+                        placeholder="例如：
+1. 实习：XX公司，数据分析实习生，2023.06-2023.09，负责数据清洗和可视化
+2. 科研：XX大学实验室，机器学习研究助理，2022.09-2023.05，参与自然语言处理项目
+3. 社团：学生会主席，2021.09-2022.06，组织校园活动...
+"
+                        rows={6}
+                      />
+                    </div>
+
+                    {/* Analyze experiences button */}
+                    <div className="form-group">
+                      <button
+                        className="button"
+                        onClick={handleAnalyzeExperiences}
+                        disabled={isAnalyzing || (!materialFile && !manualExperiences.trim())}
+                      >
+                        {isAnalyzing ? '分析中...' : '分析经历与课程匹配'}
+                      </button>
+                    </div>
+
+                    {/* Analysis results display */}
+                    {analysisResults.researchInsights && (
+                      <div className="section" style={{ marginTop: '1rem', borderColor: 'var(--primary-color)' }}>
+                        <h4>经历分析与调研结果</h4>
+
+                        {analysisResults.extractedExperiences && (
+                          <div className="form-group">
+                            <label>提取的课外经历：</label>
+                            <textarea
+                              value={analysisResults.extractedExperiences}
+                              readOnly
+                              rows={4}
+                              style={{ backgroundColor: '#f8f9fa', fontFamily: 'monospace' }}
+                            />
+                          </div>
+                        )}
+
+                        {analysisResults.matchedIntersections && (
+                          <div className="form-group">
+                            <label>经历与课程匹配点：</label>
+                            <textarea
+                              value={analysisResults.matchedIntersections}
+                              readOnly
+                              rows={4}
+                              style={{ backgroundColor: '#f8f9fa', fontFamily: 'monospace' }}
+                            />
+                          </div>
+                        )}
+
+                        {analysisResults.researchInsights && (
+                          <div className="form-group">
+                            <label>行业与学术前沿洞察：</label>
+                            <textarea
+                              value={analysisResults.researchInsights}
+                              readOnly
+                              rows={8}
+                              style={{ backgroundColor: '#f8f9fa', fontFamily: 'monospace' }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
