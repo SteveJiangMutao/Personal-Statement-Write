@@ -436,7 +436,7 @@ function App() {
                         onChange={handleMaterialFileChange}
                       />
                       <label htmlFor="materialFile">
-                        <span>📄 文书素材/简历 (Word/PDF)</span>
+                        <span>[文件] 文书素材/简历 (Word/PDF)</span>
                         {materialFile && (
                           <span className="file-name">{materialFile.name}</span>
                         )}
@@ -451,7 +451,7 @@ function App() {
                         onChange={handleTranscriptFileChange}
                       />
                       <label htmlFor="transcriptFile">
-                        <span>📊 成绩单 (截图/PDF)</span>
+                        <span>[成绩单] 成绩单 (截图/PDF)</span>
                         {transcriptFile && (
                           <span className="file-name">{transcriptFile.name}</span>
                         )}
@@ -517,7 +517,7 @@ function App() {
                           onChange={handleCurriculumFilesChange}
                         />
                         <label htmlFor="curriculumFiles">
-                          <span>📷 上传课程截图</span>
+                          <span>[图片] 上传课程截图</span>
                           {curriculumFiles.length > 0 && (
                             <span className="file-name">
                               {curriculumFiles.length} file(s) selected
@@ -564,7 +564,7 @@ function App() {
                           checked={spellingPreference === 'British'}
                           onChange={(e) => setSpellingPreference(e.target.value)}
                         />
-                        🇬🇧 英式 (British)
+                        [英] 英式 (British)
                       </label>
                       <label>
                         <input
@@ -573,7 +573,7 @@ function App() {
                           checked={spellingPreference === 'American'}
                           onChange={(e) => setSpellingPreference(e.target.value)}
                         />
-                        🇺🇸 美式 (American)
+                        [美] 美式 (American)
                       </label>
                     </div>
                   </div>
@@ -659,14 +659,14 @@ function App() {
                 {/* English Translation */}
                 <div className="column">
                   <div className="section">
-                    <h3>🇺🇸 英文翻译与修改</h3>
+                    <h3>英文翻译与修改</h3>
 
                     <button
                       className="button"
                       onClick={handleTranslate}
                       disabled={loading || !fullChineseDraft}
                     >
-                      {spellingPreference === 'British' ? '🇬🇧' : '🇺🇸'}
+                      {spellingPreference === 'British' ? '[英]' : '[美]'}
                       翻译全文 ({spellingPreference === 'British' ? 'British' : 'American'})
                     </button>
 
@@ -710,7 +710,7 @@ function App() {
                 {/* Chinese Version */}
                 <div className="column">
                   <div className="section">
-                    <h3>🇨🇳 中文版</h3>
+                    <h3>中文版</h3>
                     {fullChineseDraft ? (
                       <>
                         <p>页眉: {headers.cn || `${targetSchoolName} 个人陈述`}</p>
@@ -718,7 +718,7 @@ function App() {
                           className="download-button"
                           onClick={() => handleDownloadWord(true)}
                         >
-                          📥 下载中文版 (.docx)
+                          [下载] 下载中文版 (.docx)
                         </button>
                       </>
                     ) : (
@@ -730,7 +730,7 @@ function App() {
                 {/* English Version */}
                 <div className="column">
                   <div className="section">
-                    <h3>🇺🇸 英文版</h3>
+                    <h3>英文版</h3>
                     {fullTranslatedText ? (
                       <>
                         <p>页眉: {headers.en || `Personal Statement for ${targetSchoolName}`}</p>
@@ -738,7 +738,7 @@ function App() {
                           className="download-button"
                           onClick={() => handleDownloadWord(false)}
                         >
-                          📥 下载英文版 (.docx)
+                          [下载] 下载英文版 (.docx)
                         </button>
                       </>
                     ) : (

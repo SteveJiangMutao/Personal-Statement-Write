@@ -59,14 +59,14 @@ class FileUploadRequest(BaseModel):
     curriculum_files: Optional[List[UploadFile]] = None
 
 class TranslationRequest(BaseModel):
-    api_key: str
+    api_key: str = ""
     model_name: str = "gemini-2.5-pro"
     chinese_text: str
     spelling_preference: str = "British"
     module_type: str  # "Motivation", "Academic", etc.
 
 class EditRequest(BaseModel):
-    api_key: str
+    api_key: str = ""
     model_name: str = "gemini-2.5-pro"
     text: str
     is_chinese: bool = True
@@ -365,7 +365,7 @@ def read_root():
 
 @app.post("/api/generate")
 async def generate_personal_statement(
-    api_key: str = Form(...),
+    api_key: str = Form(""),
     model_name: str = Form("gemini-2.5-pro"),
     target_school_name: str = Form(...),
     counselor_strategy: str = Form(""),
@@ -579,7 +579,7 @@ async def generate_word_document(request: WordGenerationRequest):
 
 @app.post("/api/generate-header")
 async def generate_header(
-    api_key: str = Form(...),
+    api_key: str = Form(""),
     model_name: str = Form("gemini-2.5-pro"),
     target_school_name: str = Form(...)
 ):
