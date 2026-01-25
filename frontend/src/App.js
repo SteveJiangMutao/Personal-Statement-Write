@@ -30,7 +30,6 @@ function App() {
 
   // State for user inputs
   const [targetSchoolName, setTargetSchoolName] = useState('');
-  const [counselorStrategy, setCounselorStrategy] = useState('');
   const [selectedModules, setSelectedModules] = useState({
     Motivation: true,
     Academic: true,
@@ -150,7 +149,7 @@ function App() {
     formData.append('api_key', ''); // API key is now set via environment variable
     formData.append('model_name', modelName);
     formData.append('target_school_name', targetSchoolName);
-    formData.append('counselor_strategy', counselorStrategy);
+    formData.append('counselor_strategy', '');
     formData.append('selected_modules', JSON.stringify(selectedKeys));
     formData.append('spelling_preference', spellingPreference);
     formData.append('material_file', materialFile);
