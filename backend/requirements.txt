@@ -1,7 +1,7 @@
-# Build tools
-setuptools>=68.0.0
-wheel>=0.40.0
-pip>=23.0
+# Build tools with specific versions for compatibility
+setuptools==68.2.2
+wheel==0.43.0
+pip==24.0
 
 # Core framework
 fastapi==0.104.1
@@ -11,7 +11,7 @@ uvicorn[standard]==0.24.0
 google-generativeai==0.3.2
 python-docx==1.1.0
 pypdf==3.17.4  # Modern replacement for PyPDF2
-pillow==10.2.0
+pillow==9.5.0  # Downgraded for compatibility with Python 3.13
 
 # Web and security
 python-multipart==0.0.6
@@ -22,7 +22,7 @@ cryptography==41.0.7
 # Data validation and HTTP
 pydantic==2.5.2
 pydantic-settings==2.1.0
-httpx==0.26.0
+httpx==0.25.2  # Slightly older but stable
 
 # Environment
 python-dotenv==1.0.0
