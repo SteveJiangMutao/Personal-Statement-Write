@@ -16,7 +16,7 @@ import re
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 import json
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 import base64
 
 app = FastAPI(title="Personal Statement Writing API", version="1.0.0")
@@ -37,7 +37,9 @@ app.add_middleware(
 # 1. 数据模型
 # ==========================================
 class GenerationRequest(BaseModel):
-    api_key: str
+    model_config = ConfigDict(protected_namespaces=())
+
+    api_key: str = ""
     model_name: str = "gemini-2.5-pro"
     target_school_name: str
     counselor_strategy: str = ""
@@ -47,7 +49,9 @@ class GenerationRequest(BaseModel):
     # Files will be handled separately as multipart form data
 
 class FileUploadRequest(BaseModel):
-    api_key: str
+    model_config = ConfigDict(protected_namespaces=())
+
+    api_key: str = ""
     model_name: str = "gemini-2.5-pro"
     target_school_name: str
     counselor_strategy: str = ""
@@ -59,6 +63,8 @@ class FileUploadRequest(BaseModel):
     curriculum_files: Optional[List[UploadFile]] = None
 
 class TranslationRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     api_key: str = ""
     model_name: str = "gemini-2.5-pro"
     chinese_text: str
@@ -66,12 +72,16 @@ class TranslationRequest(BaseModel):
     module_type: str  # "Motivation", "Academic", etc.
 
 class EditRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     api_key: str = ""
     model_name: str = "gemini-2.5-pro"
     text: str
     is_chinese: bool = True
 
 class WordGenerationRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     content: str
     header_text: str
     is_chinese: bool = False
