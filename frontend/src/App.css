@@ -1,0 +1,437 @@
+/* Global styles matching the Streamlit app */
+
+/* CSS variables */
+:root {
+  --primary-color: #3666FA; /* 宝蓝 RGB 54, 102, 250 */
+  --bg-color: #FBF7EC;      /* 米色 RGB 251, 247, 236 */
+  --text-color: #3666FA;    /* 字体颜色跟随主色 */
+  --button-text: #FBF7EC;   /* 按钮内文字颜色 (米色) */
+  --sidebar-bg: #0f172a;    /* 深蓝背景 */
+  --sidebar-text: #ffffff;
+  --border-color: rgba(54, 102, 250, 0.2);
+  --success-color: #10b981;
+  --error-color: #ef4444;
+  --warning-color: #f59e0b;
+}
+
+/* Base styles */
+.App {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  min-height: 100vh;
+}
+
+/* Layout */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 3rem 1rem;
+}
+
+/* Header */
+.header {
+  text-align: left;
+  margin-bottom: 2rem;
+}
+
+.header h1 {
+  color: var(--text-color);
+  font-weight: 800;
+  font-size: 2.5rem;
+  letter-spacing: -0.02em;
+  margin-bottom: 2rem;
+}
+
+/* Sections */
+.section {
+  background-color: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 5px rgba(54, 102, 250, 0.05);
+}
+
+.section h2 {
+  color: var(--text-color);
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+.section h3 {
+  color: var(--text-color);
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+/* Form elements */
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+input[type="text"],
+input[type="password"],
+textarea,
+select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid rgba(54, 102, 250, 0.3);
+  border-radius: 8px;
+  background-color: #ffffff;
+  font-size: 14px;
+  color: #1e293b;
+  transition: all 0.2s ease;
+  font-family: 'Inter', sans-serif;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(54, 102, 250, 0.1);
+  outline: none;
+}
+
+textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+/* Buttons */
+.button {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--primary-color);
+  color: var(--button-text);
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(54, 102, 250, 0.2);
+}
+
+.button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.button-secondary {
+  background-color: #E2E8F0;
+  color: #64748B;
+}
+
+.button-success {
+  background-color: var(--success-color);
+}
+
+.button-warning {
+  background-color: var(--warning-color);
+}
+
+.button-error {
+  background-color: var(--error-color);
+}
+
+/* File upload */
+.file-upload {
+  border: 1px dashed rgba(54, 102, 250, 0.4);
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+  transition: all 0.2s ease;
+  margin-bottom: 1rem;
+}
+
+.file-upload:hover {
+  border-color: var(--primary-color);
+  background-color: rgba(54, 102, 250, 0.05);
+}
+
+.file-upload input {
+  display: none;
+}
+
+.file-upload label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  color: var(--text-color);
+}
+
+/* Blue info box */
+.blue-box {
+  background-color: var(--primary-color);
+  color: #ffffff;
+  padding: 15px 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  line-height: 1.6;
+  box-shadow: 0 2px 5px rgba(54, 102, 250, 0.2);
+}
+
+.blue-box p {
+  margin: 0;
+}
+
+/* Module toggles */
+.module-toggle-container {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.module-toggle {
+  flex: 1;
+  min-width: 120px;
+}
+
+.module-toggle button {
+  width: 100%;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.module-toggle.active button {
+  background-color: var(--primary-color);
+  color: var(--button-text);
+}
+
+.module-toggle.inactive button {
+  background-color: #E2E8F0;
+  color: #64748B;
+}
+
+/* Columns layout */
+.columns {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.column {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .columns {
+    flex-direction: column;
+  }
+}
+
+/* Progress bar */
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background-color: #E2E8F0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: var(--primary-color);
+  transition: width 0.3s ease;
+}
+
+/* Alert messages */
+.alert {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  border-left: 4px solid;
+}
+
+.alert-success {
+  background-color: rgba(16, 185, 129, 0.1);
+  border-left-color: var(--success-color);
+  color: var(--success-color);
+}
+
+.alert-error {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-left-color: var(--error-color);
+  color: var(--error-color);
+}
+
+.alert-warning {
+  background-color: rgba(245, 158, 11, 0.1);
+  border-left-color: var(--warning-color);
+  color: var(--warning-color);
+}
+
+.alert-info {
+  background-color: rgba(54, 102, 250, 0.1);
+  border-left-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 1rem;
+}
+
+.tab {
+  padding: 0.75rem 1.5rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-color);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab.active {
+  border-bottom-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.tab-content {
+  padding: 1rem 0;
+}
+
+/* Loading spinner */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(54, 102, 250, 0.3);
+  border-radius: 50%;
+  border-top-color: var(--primary-color);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+/* Toast notifications */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 1rem 1.5rem;
+  background-color: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Download buttons */
+.download-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--primary-color);
+  color: var(--button-text);
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.download-button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* Sidebar */
+.sidebar {
+  background-color: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  padding: 2rem;
+  min-height: 100vh;
+}
+
+.sidebar h2 {
+  color: var(--sidebar-text);
+  margin-bottom: 1.5rem;
+}
+
+.sidebar .form-group {
+  margin-bottom: 1.5rem;
+}
+
+.sidebar input[type="text"],
+.sidebar input[type="password"],
+.sidebar select {
+  background-color: #1e293b;
+  color: #ffffff;
+  border: 1px solid #334155;
+}
+
+.sidebar input[type="text"]:focus,
+.sidebar input[type="password"]:focus,
+.sidebar select:focus {
+  border-color: var(--primary-color);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .container {
+    padding: 2rem 1rem;
+  }
+
+  .header h1 {
+    font-size: 2rem;
+  }
+}
