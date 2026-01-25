@@ -1,14 +1,28 @@
+# Build tools
+setuptools>=68.0.0
+wheel>=0.40.0
+pip>=23.0
+
+# Core framework
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
+
+# AI and document processing
 google-generativeai==0.3.2
 python-docx==1.1.0
-PyPDF2==3.0.1
-pillow==10.1.0
+pypdf==3.17.4  # Modern replacement for PyPDF2
+pillow==10.2.0
+
+# Web and security
 python-multipart==0.0.6
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 cryptography==41.0.7
-pydantic==2.5.0
+
+# Data validation and HTTP
+pydantic==2.5.2
 pydantic-settings==2.1.0
-httpx==0.25.2
+httpx==0.26.0
+
+# Environment
 python-dotenv==1.0.0

@@ -7,7 +7,7 @@ import docx
 from docx.shared import Pt, RGBColor
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
-import PyPDF2
+import pypdf
 import io
 import os
 import time
@@ -162,7 +162,7 @@ def read_word_file(file_bytes):
 def read_pdf_text(file_bytes):
     """读取 PDF 文件内容"""
     try:
-        pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))
+        pdf_reader = pypdf.PdfReader(io.BytesIO(file_bytes))
         text = ""
         for page in pdf_reader.pages:
             text += page.extract_text() + "\n"
