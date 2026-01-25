@@ -1,0 +1,28 @@
+# Render Blueprint for Personal Statement Backend
+# This file defines the backend service configuration for Render.com
+# Documentation: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: personal-statement-backend
+    runtime: python
+    region: singapore
+    branch: main
+    rootDir: backend
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 4
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: ENVIRONMENT
+        value: production
+    healthCheckPath: /
+    autoDeploy: true
+    plan: free
+
+# Note: If you already have a service named "personal-statement-backend",
+# you can either:
+# 1. Update the existing service with the PYTHON_VERSION environment variable
+# 2. Or delete the existing service and let Render recreate it from this blueprint
