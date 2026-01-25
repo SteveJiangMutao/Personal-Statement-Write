@@ -505,7 +505,7 @@ function App() {
                         onChange={handleMaterialFileChange}
                       />
                       <label htmlFor="materialFile">
-                        <span>文书素材/简历 (Word/PDF)</span>
+                        <span>文书素材/简历</span>
                         {materialFile && (
                           <span className="file-name">{materialFile.name}</span>
                         )}
@@ -520,7 +520,7 @@ function App() {
                         onChange={handleTranscriptFileChange}
                       />
                       <label htmlFor="transcriptFile">
-                        <span>成绩单 (截图/PDF)</span>
+                        <span>成绩单</span>
                         {transcriptFile && (
                           <span className="file-name">{transcriptFile.name}</span>
                         )}
@@ -531,13 +531,10 @@ function App() {
                     <div className="form-group" style={{ marginTop: '1rem' }}>
                       <label>或手动输入课外经历：</label>
                       <textarea
+                        className="small-text"
                         value={manualExperiences}
                         onChange={(e) => setManualExperiences(e.target.value)}
-                        placeholder="例如：
-1. 实习：XX公司，数据分析实习生，2023.06-2023.09，负责数据清洗和可视化
-2. 科研：XX大学实验室，机器学习研究助理，2022.09-2023.05，参与自然语言处理项目
-3. 社团：学生会主席，2021.09-2022.06，组织校园活动...
-"
+                        placeholder="例如：实习：XX公司，数据分析实习生，2023.06-2023.09，负责数据清洗..."
                         rows={6}
                       />
                     </div>
@@ -547,7 +544,7 @@ function App() {
                       <button
                         className="button"
                         onClick={handleAnalyzeExperiences}
-                        disabled={isAnalyzing || (!materialFile && !manualExperiences.trim())}
+                        disabled={isAnalyzing || !targetSchoolName || (!materialFile && !manualExperiences.trim())}
                       >
                         {isAnalyzing ? (
                           <>
@@ -620,18 +617,16 @@ function App() {
                     </div>
 
                     <div className="form-group">
-                      <label>课程设置 (Curriculum)</label>
-                      <div className="tabs">
-                        <button className="tab active">文本粘贴</button>
-                        <button className="tab">图片上传</button>
-                      </div>
+                      <label>课程设置</label>
+                      <p className="caption" style={{ marginBottom: '0.5rem' }}>文本粘贴或上传截图</p>
 
-                      <div className="tab-content">
+                      <div style={{ marginBottom: '1rem' }}>
                         <textarea
                           value={curriculumText}
                           onChange={(e) => setCurriculumText(e.target.value)}
                           placeholder="Core Modules: ..."
                           rows={6}
+                          style={{ marginBottom: '0' }}
                         />
                       </div>
 
@@ -746,7 +741,7 @@ function App() {
 
               {motivationTrends && (
                 <div className="section">
-                  <h3>行业趋势调研与参考源 (Reference)</h3>
+                  <h3>行业趋势调研与参考源</h3>
                   <BlueBox>
                     <div dangerouslySetInnerHTML={{ __html: motivationTrends }} />
                   </BlueBox>
@@ -842,7 +837,7 @@ function App() {
                           className="download-button"
                           onClick={() => handleDownloadWord(true)}
                         >
-                          [下载] 下载中文版 (.docx)
+                          [下载] 下载中文版
                         </button>
                       </>
                     ) : (
@@ -862,7 +857,7 @@ function App() {
                           className="download-button"
                           onClick={() => handleDownloadWord(false)}
                         >
-                          [下载] 下载英文版 (.docx)
+                          [下载] 下载英文版
                         </button>
                       </>
                     ) : (

@@ -587,6 +587,12 @@ textarea {
   border-color: var(--primary-color);
 }
 
+/* Small text for textareas */
+.small-text {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .container {
