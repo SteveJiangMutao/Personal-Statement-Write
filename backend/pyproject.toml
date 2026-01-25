@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=65.5.0", "wheel>=0.38.4"]
+requires = ["setuptools>=68.2.2", "wheel>=0.43.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -15,12 +15,12 @@ dependencies = [
     "google-generativeai==0.3.2",
     "python-docx==1.1.0",
     "pypdf==3.17.4",
-    "pillow>=8.3.2,<9.0.0",
+    "pillow==9.5.0",
     "python-multipart==0.0.6",
     "python-jose[cryptography]==3.3.0",
     "passlib[bcrypt]==1.7.4",
     "cryptography==41.0.7",
-    "pydantic==2.5.2",
+    "pydantic==2.4.2",
     "pydantic-settings==2.1.0",
     "httpx==0.25.2",
     "python-dotenv==1.0.0",
