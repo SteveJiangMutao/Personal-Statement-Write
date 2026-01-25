@@ -491,7 +491,7 @@ function App() {
             <div className="section">
               <h2>信息采集与素材上传</h2>
 
-              <div className="columns">
+              <div className="columns vertical-columns">
                 {/* Student Information */}
                 <div className="column">
                   <div className="section">
@@ -506,7 +506,7 @@ function App() {
                         onChange={handleMaterialFileChange}
                       />
                       <label htmlFor="materialFile">
-                        <span>[文件] 文书素材/简历 (Word/PDF)</span>
+                        <span>文书素材/简历 (Word/PDF)</span>
                         {materialFile && (
                           <span className="file-name">{materialFile.name}</span>
                         )}
@@ -521,7 +521,7 @@ function App() {
                         onChange={handleTranscriptFileChange}
                       />
                       <label htmlFor="transcriptFile">
-                        <span>[成绩单] 成绩单 (截图/PDF)</span>
+                        <span>成绩单 (截图/PDF)</span>
                         {transcriptFile && (
                           <span className="file-name">{transcriptFile.name}</span>
                         )}
@@ -550,7 +550,12 @@ function App() {
                         onClick={handleAnalyzeExperiences}
                         disabled={isAnalyzing || (!materialFile && !manualExperiences.trim())}
                       >
-                        {isAnalyzing ? '分析中...' : '分析经历与课程匹配'}
+                        {isAnalyzing ? (
+                          <>
+                            <span className="spinner"></span>
+                            分析中...
+                          </>
+                        ) : '分析经历与课程匹配'}
                       </button>
                     </div>
 
@@ -599,22 +604,6 @@ function App() {
                   </div>
                 </div>
 
-                {/* Counselor Guidance */}
-                <div className="column">
-                  <div className="section">
-                    <h3>顾问指导意见</h3>
-                    <p className="caption">设定文书的整体策略与调性</p>
-
-                    <div className="form-group">
-                      <textarea
-                        value={counselorStrategy}
-                        onChange={(e) => setCounselorStrategy(e.target.value)}
-                        placeholder="例如：\n1. 强调量化背景\n2. 解释GPA劣势\n3. 突出某段实习的领导力..."
-                        rows={8}
-                      />
-                    </div>
-                  </div>
-                </div>
 
                 {/* Target Program Information */}
                 <div className="column">
@@ -656,7 +645,7 @@ function App() {
                           onChange={handleCurriculumFilesChange}
                         />
                         <label htmlFor="curriculumFiles">
-                          <span>[图片] 上传课程截图</span>
+                          <span>上传课程截图</span>
                           {curriculumFiles.length > 0 && (
                             <span className="file-name">
                               {curriculumFiles.length} file(s) selected
@@ -672,50 +661,47 @@ function App() {
 
             {/* Writing Settings */}
             <div className="section">
-              <h2>写作设定</h2>
-
-              <div className="columns">
-                <div className="column">
-                  <h3>选择模块 (点击切换选中状态):</h3>
-                  <div className="module-toggle-container">
-                    {displayOrder.map(moduleKey => (
-                      <div
-                        key={moduleKey}
-                        className={`module-toggle ${selectedModules[moduleKey] ? 'active' : 'inactive'}`}
-                        onClick={() => toggleModule(moduleKey)}
-                      >
-                        <button type="button">
-                          {modules[moduleKey]}
-                        </button>
-                      </div>
-                    ))}
+              <div className="writing-settings-header">
+                <h2>写作设定</h2>
+                <div className="spelling-preference-compact">
+                  <span className="spelling-label">拼写偏好:</span>
+                  <div className="radio-group-horizontal">
+                    <label>
+                      <input
+                        type="radio"
+                        value="British"
+                        checked={spellingPreference === 'British'}
+                        onChange={(e) => setSpellingPreference(e.target.value)}
+                      />
+                      英式
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        value="American"
+                        checked={spellingPreference === 'American'}
+                        onChange={(e) => setSpellingPreference(e.target.value)}
+                      />
+                      美式
+                    </label>
                   </div>
                 </div>
+              </div>
 
-                <div className="column">
-                  <div className="form-group">
-                    <label>拼写偏好 (Spelling)</label>
-                    <div className="radio-group">
-                      <label>
-                        <input
-                          type="radio"
-                          value="British"
-                          checked={spellingPreference === 'British'}
-                          onChange={(e) => setSpellingPreference(e.target.value)}
-                        />
-                        [英] 英式 (British)
-                      </label>
-                      <label>
-                        <input
-                          type="radio"
-                          value="American"
-                          checked={spellingPreference === 'American'}
-                          onChange={(e) => setSpellingPreference(e.target.value)}
-                        />
-                        [美] 美式 (American)
-                      </label>
+              <div className="module-selection">
+                <p className="module-instruction">选择模块 (点击切换选中状态):</p>
+                <div className="module-toggle-container">
+                  {displayOrder.map(moduleKey => (
+                    <div
+                      key={moduleKey}
+                      className={`module-toggle ${selectedModules[moduleKey] ? 'active' : 'inactive'}`}
+                      onClick={() => toggleModule(moduleKey)}
+                    >
+                      <button type="button">
+                        {modules[moduleKey]}
+                      </button>
                     </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>

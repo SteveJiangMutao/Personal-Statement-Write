@@ -18,6 +18,8 @@ from typing import List, Optional, Dict, Any
 import json
 from pydantic import BaseModel, ConfigDict
 import base64
+import warnings
+warnings.filterwarnings("ignore", message=".*protected_namespaces.*")
 
 app = FastAPI(title="Personal Statement Writing API", version="1.0.0")
 
