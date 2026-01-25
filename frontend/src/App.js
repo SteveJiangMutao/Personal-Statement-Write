@@ -26,8 +26,7 @@ const displayOrder = ["Motivation", "Academic", "Internship", "Why_School", "Car
 
 function App() {
   // State for API configuration
-  const [apiKey, setApiKey] = useState('');
-  const [modelName, setModelName] = useState('gemini-3-pro-preview');
+  const [modelName, setModelName] = useState('gemini-2.5-pro');
 
   // State for user inputs
   const [targetSchoolName, setTargetSchoolName] = useState('');
@@ -119,11 +118,6 @@ function App() {
   // Generate personal statement
   const handleGenerate = async () => {
     // Validation
-    if (!apiKey) {
-      alert('Please enter your Google API Key in the sidebar');
-      return;
-    }
-
     if (!targetSchoolName) {
       alert('Please enter target school and major');
       return;
@@ -144,7 +138,7 @@ function App() {
     setLoadingProgress(0);
 
     const formData = new FormData();
-    formData.append('api_key', apiKey);
+    formData.append('api_key', ''); // API key is now set via environment variable
     formData.append('model_name', modelName);
     formData.append('target_school_name', targetSchoolName);
     formData.append('counselor_strategy', counselorStrategy);
@@ -197,10 +191,10 @@ function App() {
 
   // Generate headers
   const generateHeaders = async () => {
-    if (!apiKey || !targetSchoolName) return;
+    if (!targetSchoolName) return;
 
     const formData = new FormData();
-    formData.append('api_key', apiKey);
+    formData.append('api_key', ''); // API key is now set via environment variable
     formData.append('model_name', modelName);
     formData.append('target_school_name', targetSchoolName);
 
@@ -224,11 +218,6 @@ function App() {
 
   // Translate content
   const handleTranslate = async () => {
-    if (!apiKey) {
-      alert('Please enter your Google API Key');
-      return;
-    }
-
     if (!fullChineseDraft) {
       alert('No Chinese draft to translate');
       return;
@@ -246,7 +235,7 @@ function App() {
           if (!chineseText.trim()) continue;
 
           const requestData = {
-            api_key: apiKey,
+            api_key: '', // API key is now set via environment variable
             model_name: modelName,
             chinese_text: chineseText,
             spelling_preference: spellingPreference,
@@ -274,13 +263,13 @@ function App() {
 
   // Edit content (Chinese)
   const handleEditChinese = async () => {
-    if (!apiKey || !fullChineseDraft) return;
+    if (!fullChineseDraft) return;
 
     setLoading(true);
 
     try {
       const requestData = {
-        api_key: apiKey,
+        api_key: '', // API key is now set via environment variable
         model_name: modelName,
         text: fullChineseDraft,
         is_chinese: true
@@ -302,13 +291,13 @@ function App() {
 
   // Edit content (English)
   const handleEditEnglish = async () => {
-    if (!apiKey || !fullTranslatedText) return;
+    if (!fullTranslatedText) return;
 
     setLoading(true);
 
     try {
       const requestData = {
-        api_key: apiKey,
+        api_key: '', // API key is now set via environment variable
         model_name: modelName,
         text: fullTranslatedText,
         is_chinese: false
@@ -414,24 +403,14 @@ function App() {
         <div className="section">
           <h2>系统设置</h2>
           <div className="form-group">
-            <label htmlFor="apiKey">Google API Key</label>
-            <input
-              id="apiKey"
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Enter your Google API Key"
-            />
-          </div>
-          <div className="form-group">
             <label htmlFor="modelName">Model</label>
             <select
               id="modelName"
               value={modelName}
               onChange={(e) => setModelName(e.target.value)}
             >
-              <option value="gemini-3-pro-preview">gemini-3-pro-preview</option>
               <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+              <option value="gemini-3-pro-preview">gemini-3-pro-preview</option>
             </select>
           </div>
         </div>

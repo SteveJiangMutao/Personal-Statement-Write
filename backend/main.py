@@ -21,6 +21,9 @@ import base64
 
 app = FastAPI(title="Personal Statement Writing API", version="1.0.0")
 
+# Environment variables
+GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
+
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
@@ -35,7 +38,7 @@ app.add_middleware(
 # ==========================================
 class GenerationRequest(BaseModel):
     api_key: str
-    model_name: str = "gemini-3-pro-preview"
+    model_name: str = "gemini-2.5-pro"
     target_school_name: str
     counselor_strategy: str = ""
     selected_modules: List[str]
@@ -45,7 +48,7 @@ class GenerationRequest(BaseModel):
 
 class FileUploadRequest(BaseModel):
     api_key: str
-    model_name: str = "gemini-3-pro-preview"
+    model_name: str = "gemini-2.5-pro"
     target_school_name: str
     counselor_strategy: str = ""
     selected_modules: List[str]
@@ -57,14 +60,14 @@ class FileUploadRequest(BaseModel):
 
 class TranslationRequest(BaseModel):
     api_key: str
-    model_name: str = "gemini-3-pro-preview"
+    model_name: str = "gemini-2.5-pro"
     chinese_text: str
     spelling_preference: str = "British"
     module_type: str  # "Motivation", "Academic", etc.
 
 class EditRequest(BaseModel):
     api_key: str
-    model_name: str = "gemini-3-pro-preview"
+    model_name: str = "gemini-2.5-pro"
     text: str
     is_chinese: bool = True
 
@@ -172,10 +175,12 @@ def read_pdf_text(file_bytes):
 
 def get_gemini_response(api_key: str, model_name: str, prompt: str, media_content=None, text_context=None):
     """调用 Gemini API"""
-    if not api_key:
-        return "Error: API Key is required"
+    # 优先使用环境变量中的API Key
+    effective_api_key = GOOGLE_API_KEY if GOOGLE_API_KEY else api_key
+    if not effective_api_key:
+        return "Error: API Key is required. Please set GOOGLE_API_KEY environment variable or provide via request."
 
-    genai.configure(api_key=api_key)
+    genai.configure(api_key=effective_api_key)
     model = genai.GenerativeModel(model_name)
 
     content = []
@@ -361,7 +366,7 @@ def read_root():
 @app.post("/api/generate")
 async def generate_personal_statement(
     api_key: str = Form(...),
-    model_name: str = Form("gemini-3-pro-preview"),
+    model_name: str = Form("gemini-2.5-pro"),
     target_school_name: str = Form(...),
     counselor_strategy: str = Form(""),
     selected_modules: str = Form(...),  # JSON string of list
@@ -575,7 +580,7 @@ async def generate_word_document(request: WordGenerationRequest):
 @app.post("/api/generate-header")
 async def generate_header(
     api_key: str = Form(...),
-    model_name: str = Form("gemini-3-pro-preview"),
+    model_name: str = Form("gemini-2.5-pro"),
     target_school_name: str = Form(...)
 ):
     """生成中英文页眉"""
