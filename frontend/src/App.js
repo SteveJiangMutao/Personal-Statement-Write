@@ -73,8 +73,8 @@ function App() {
   const [sectionsData, setSectionsData] = useState([]);
   const [confirmedParagraphs, setConfirmedParagraphs] = useState([]);
   const [confirmedContents, setConfirmedContents] = useState({});
-  const [_finalPreviewText, setFinalPreviewText] = useState('');
-  const [_finalPreviewTextCleaned, setFinalPreviewTextCleaned] = useState('');
+  const [, setFinalPreviewText] = useState('');
+  const [, setFinalPreviewTextCleaned] = useState('');
 
   // State for refine mode file uploads
   const [oldPSFile, setOldPSFile] = useState(null);
@@ -87,7 +87,7 @@ function App() {
   const [toastMessage, setToastMessage] = useState('');
   // State for streaming output
   const [streamingText, setStreamingText] = useState('');
-  const [_streamingModule, setStreamingModule] = useState('');
+  const [, setStreamingModule] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
 
   // Initialize with default module selection
