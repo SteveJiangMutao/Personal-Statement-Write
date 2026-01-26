@@ -101,6 +101,51 @@ class ExperienceAnalysisRequest(BaseModel):
     manual_experiences: Optional[str] = None
 
 # ==========================================
+# 润色功能数据模型
+# ==========================================
+class RefineAnalysisRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    api_key: str = ""
+    model_name: str = "gemini-2.5-pro"
+    old_ps: str
+    target_school: str
+    target_major: str
+    course_info: Optional[str] = None
+    strategy: Optional[str] = ""
+    # Files will be handled separately as multipart form data
+
+class ParagraphData(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    logic: str
+    draft: str
+    confirmed: bool = False
+
+class RefineEditRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    api_key: str = ""
+    model_name: str = "gemini-2.5-pro"
+    text: str
+    has_chinese: bool = True
+
+class HybridTranslateRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    api_key: str = ""
+    model_name: str = "gemini-2.5-pro"
+    hybrid_text: str
+    style: str = "US"  # "US" or "UK"
+
+class RemoveAIVocabRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    api_key: str = ""
+    model_name: str = "gemini-2.5-pro"
+    text: str
+
+# ==========================================
 # 2. 核心辅助函数 (从原 psw.py 移植)
 # ==========================================
 def set_bottom_border(paragraph):
@@ -223,6 +268,39 @@ def get_gemini_response(api_key: str, model_name: str, prompt: str, media_conten
         return response.text
     except Exception as e:
         return f"Error: {str(e)}"
+
+def get_gemini_response_stream(api_key: str, model_name: str, prompt: str, media_content=None, text_context=None):
+    """调用 Gemini API 流式生成"""
+    # 优先使用环境变量中的API Key
+    effective_api_key = GOOGLE_API_KEY if GOOGLE_API_KEY else api_key
+    if not effective_api_key:
+        yield "data: Error: API Key is required. Please set GOOGLE_API_KEY environment variable or provide via request.\n\n"
+        return
+
+    genai.configure(api_key=effective_api_key)
+    model = genai.GenerativeModel(model_name)
+
+    content = []
+    content.append(prompt)
+
+    if text_context:
+        content.append(f"\n【参考文档/背景信息 (简历或素材表)】:\n{text_context}")
+
+    if media_content:
+        if isinstance(media_content, list):
+            content.extend(media_content)
+        else:
+            content.append(media_content)
+
+    try:
+        response_stream = model.generate_content(content, stream=True)
+
+        for chunk in response_stream:
+            if chunk.text:
+                # 发送SSE格式数据
+                yield f"data: {chunk.text}\n\n"
+    except Exception as e:
+        yield f"data: Error: {str(e)}\n\n"
 
 # ==========================================
 # 3. 提示词模板 (从原 psw.py 移植)
@@ -511,6 +589,247 @@ def get_prompt_research_insights(target_school_name: str, matched_intersections:
     3. 洞察应具有前瞻性、具体性和可行性。
     """
 
+# ==========================================
+# 润色功能提示词模板 (从 psr.py 移植)
+# ==========================================
+
+def contains_chinese(text: str) -> bool:
+    """检测文本中是否包含中文字符"""
+    for char in text:
+        if '\u4e00' <= char <= '\u9fff':
+            return True
+    return False
+
+def contains_annotation(text: str) -> bool:
+    """检测文本是否包含【】或[]形式的批注标记"""
+    return ('【' in text and '】' in text) or ('[' in text and ']' in text)
+
+def build_analysis_prompt(school: str, major: str, old_text: str, new_course_text: str, has_images: bool, strategy_text: str) -> str:
+    """构建用于初始分析和生成中英混合文本的提示词"""
+    # 如果上传了图片，添加相关指示
+    image_instruction = "我同时也上传了课程设置的截图，请务必结合截图内容。" if has_images else ""
+
+    # 如果提供了策略文本，添加到提示中
+    custom_strategy_instruction = ""
+    if strategy_text and strategy_text.strip():
+        custom_strategy_instruction = f"""
+        【用户特别指令 (优先级最高)】
+        {strategy_text}
+        """
+
+    # 返回完整的提示词
+    return f"""
+    你是一位专业的留学文书顾问。
+    【任务目标】将用户的【旧个人陈述】适配到新的申请目标：**{school}** 的 **{major}** 专业。
+    {custom_strategy_instruction}
+    【输入材料】
+    1. 旧 PS 内容：
+    {old_text}
+    2. 新项目课程信息：
+    {new_course_text}
+    {image_instruction}
+
+    【核心修改逻辑 (必须严格执行)】
+    1. **结构与顺序 (尊重原文)**：
+       - 请**顺应旧文书原本的段落结构和逻辑顺序**进行输出，不要强行打乱或重组。
+       - **关键要求**：在处理每一段时，你必须在 `[[LOGIC]]` 中明确识别出**这一段的功能**。
+
+    2. **针对"课程设置/择校理由"段落 (智能识别并深度重写)**：
+       - 当你处理到**涉及学校、课程、Why School**的段落时，必须**完全重写**。
+       - **筛选逻辑**：排除通用课程，只选与学生背景结合紧密的核心课。
+       - **深度与具体化**：必须深入引用该课程模块中的**关键概念 (Key Concepts)** 或 **具体方法学**。
+
+    3. **针对其他段落 (全篇适配与优化)**：
+       - **范围覆盖**：开头动机、学习/实践经历、职业规划。
+       - **适配新专业**：检查内容是否符合新专业逻辑。
+
+    【⚠️⚠️⚠️ 绝对强制执行规则 (ABSOLUTE MANDATORY RULES) ⚠️⚠️⚠️】
+    在生成 `[[DRAFT]]` 时，必须严格执行以下"中英混合"逻辑，这是最高优先级指令：
+    1. **Unchanged Parts (未修改部分)**: MUST remain in **Original English**. Do NOT translate them into Chinese. 未修改部分必须保留原始英文。
+    2. **Modified/New Parts (修改/新增部分)**: MUST be written in **CHINESE (中文)** directly without any brackets or parentheses. 所有修改或新增的部分必须直接用中文写出，不要用任何符号包裹。
+       - Example: Original English text... 这里插入一句关于课程 A 的具体分析，强调它如何提升我的数据挖掘能力... more original English text.
+    3. **Rewrite Sections (重写段落)**: If a whole paragraph (like Why School) is rewritten, output it **entirely in Chinese** without any brackets. 如果整段重写（如Why School段落），必须将整段内容直接用中文写出。
+       - Example: 整段重写的内容...
+
+    【⚠️ 严格禁止】
+    1. 不要在输出开头添加任何问候语或介绍语，如"作为一名专业的留学文书顾问..."
+    2. 直接从第一段内容开始输出，不要有任何前言或开场白
+    3. 所有修改过的内容必须用中文表达，不要直接输出英文修改
+    4. 不要用英文输出任何修改内容，所有修改必须是中文
+    5. 不要使用任何符号（如方括号[]、圆括号()等）来包裹中文内容，直接输出中文即可
+
+    【输出格式示例】
+    ===SECTION===
+    [[LOGIC]]
+    本段功能识别：[例如：学术背景]
+    这里用中文解释修改思路...
+    [[DRAFT]]
+    Original English sentence here. 这里插入一句补充说明，强调量化能力. Another original English sentence.
+    ===SECTION===
+    ...
+
+    请开始输出：
+    """
+
+def build_refine_prompt(text_with_instructions: str, has_chinese: bool) -> str:
+    """构建用于根据批注修改文本的提示词，根据文本是否包含中文决定输出语言"""
+    # 根据文本是否包含中文决定输出语言
+    output_language = "CHINESE" if has_chinese else "ENGLISH"
+
+    return f"""
+    You are an expert editor. The user has provided a draft text below, but they have inserted **modification instructions** inside brackets `【...】` or `[...]`.
+    **Your Task:**
+    1. Read the text carefully.
+    2. Identify the instructions inside `【】` or `[]` (e.g., "【把这段语气改得更自信一点】", "[make this more professional]").
+    3. **Execute** these instructions to rewrite the text.
+    4. **Remove** the instruction markers and the instruction text itself from the final output.
+    5. Keep the rest of the text that was not targeted by instructions unchanged.
+    6. Ensure the final output is smooth and coherent.
+
+    **IMPORTANT OUTPUT LANGUAGE RULE:**
+    - The text contains Chinese: {has_chinese}
+    - Your output MUST be in {output_language}.
+    - If the input contains Chinese text, keep using Chinese in your output.
+    - If the input is entirely in English, respond in English.
+
+    **Input Text:**
+    {text_with_instructions}
+    **Output:**
+    Output ONLY the refined text (no explanations).
+    """
+
+def build_translate_prompt(hybrid_text: str, style: str = "US") -> str:
+    """构建用于将中英混合文本翻译为纯英文的提示词，支持美式和英式拼写"""
+    # 根据指定风格设置拼写规则
+    spelling_rule = "American Spelling (Color, Honor, Analyze)" if style == "US" else "British Spelling (Colour, Honour, Analyse)"
+
+    return f"""
+    You are an expert Admissions Essay Translator.
+    Task: Translate the hybrid Chinese-English paragraph into professional English.
+    Spelling Convention: {spelling_rule}.
+    Input (Hybrid Draft):
+    {hybrid_text}
+    CRITICAL RULES (MUST FOLLOW)
+    1. **HIGHLIGHTING (Most Important)**:
+       - You MUST wrap ALL **newly translated** parts (from Chinese to English) in double asterisks (e.g., **this is translated from Chinese**).
+       - Do NOT bold the original English text that was kept unchanged.
+    2. **BANNED VOCABULARY (DO NOT USE)**:
+       - master / mastery
+       - my goal is to
+       - permit
+       - deep comprehension
+       - focus
+       - look forward to
+       - address
+       - command
+       - drawn to / draw
+       - demonstrate (use sparingly)
+       - privilege
+       - testament
+       - commitment
+    3. **WRITING STYLE & GRAMMAR**:
+       - **No Adverbs**: Avoid adverbs (e.g., significantly, truly, very).
+       - **Professional Tone**: Use precise, professional terminology.
+       - **Punctuation**: Use semicolons (;) where appropriate.
+       - **Paragraph Unity**: Do NOT split the paragraph. Keep it as one block.
+    4. **TRANSLATION EXECUTION**:
+       - **MUST translate ALL Chinese text** into professional English following the rules above.
+       - Any text inside brackets like `(...)` or `【...】` must be translated to English and highlighted with **.
+       - Merge translations smoothly with the existing English text.
+       - Output ONLY the final English paragraph.
+    """
+
+def build_english_refine_prompt(text_with_instructions: str) -> str:
+    """构建用于英文精修阶段的提示词，确保输出纯英文"""
+    return f"""
+    You are an expert academic editor specializing in personal statements for graduate school applications.
+
+    **Your Task:**
+    1. Read the English text carefully.
+    2. Identify the instructions inside `【】` or `[]` (e.g., "[make this more professional]", "【improve this sentence】").
+    3. **Execute** these instructions to improve the text.
+    4. **Remove** the instruction markers and the instruction text itself from the final output.
+    5. Keep the rest of the text that was not targeted by instructions unchanged.
+    6. Ensure the final output is smooth, coherent, and maintains a professional academic tone.
+
+    **CRITICAL RULES:**
+    - Output MUST be in ENGLISH only.
+    - Maintain the original meaning and intent of the text.
+    - Highlight all modified parts with double asterisks (e.g., **this text was modified**).
+    - Follow academic writing best practices.
+    - Avoid banned vocabulary: master/mastery, my goal is to, permit, deep comprehension, focus, look forward to, address, command, drawn to/draw, demonstrate (use sparingly), privilege, testament, commitment.
+    - Avoid adverbs (e.g., significantly, truly, very).
+
+    **Input Text:**
+    {text_with_instructions}
+
+    **Output:**
+    Output ONLY the refined English text with modified parts highlighted (no explanations).
+    """
+
+def build_remove_ai_vocab_prompt(text: str) -> str:
+    """构建用于去除AI写作高频词汇和句式的提示词"""
+    return f"""
+你是一位专业的英文写作编辑，任务是去除个人陈述中的AI写作高频词汇和句式，使文本更加自然、个性化。
+
+**绝对禁用的AI词汇和句式（黑名单）：**
+A. 滥用的词汇和短语：
+动词：
+address (问题)
+cultivate
+Demonstrate（非严格禁用，需要少用，不要多次重复出现）
+draw (特指 "draw from experience" 这类用法)
+master
+permit
+leverage, utilize
+名词和名词短语：
+command (of a skill)
+commitment
+comprehension (尤其是 deep comprehension)
+Master/mastery
+privilege
+tenure
+testament
+陈腐短语：
+Building on this... / Building on this foundation
+drawn to
+look forward to
+my goal is to
+B. 滥用的结构和比喻：
+副词+动词/形容词结构：避免过度使用"显著提升"、"深入理解"这类组合。
+公式化因果：禁用 By doing X, I was able to Y 和 ...thereby doing... 的句式。
+陈腐的比喻：
+"旅程"隐喻 (e.g., academic/career journey)
+"工具箱"隐喻 (e.g., skill set/toolkit)
+"交汇点"逻辑 (e.g., the intersection of X and Y)
+
+C. **Sentence Structure Variety (Balanced Rule)**: AI models often overuse the "comma + verb-ing" structure (e.g., ", revealing trends"). Do not strictly ban it, as it is valid in academic English, but **use it sparingly** to avoid a repetitive "AI tone." Instead, prioritize variety by using relative clauses (e.g., ", which revealed..."), coordination (e.g., "and revealed..."), or starting new sentences where appropriate for better flow.
+
+**重要规则：**
+7. **IMPORTANT - Remove Markdown**: Remove all Markdown formatting symbols like asterisks (*), double asterisks (**), underscores (_), etc. from the output. Provide clean text without any Markdown formatting.
+8. **Punctuation with Quotation Marks**: For general text (not formal citations), always place commas, periods, and other punctuation marks OUTSIDE of quotation marks, not inside. For example, use "example", not "example,". For formal citations, maintain the original citation style's punctuation rules.
+
+**你的任务：**
+1. 仔细阅读以下文本。
+2. 识别并移除所有黑名单中的词汇和短语。
+3. 改写包含禁用句式的句子，保持原意但使用更自然的表达。
+4. 去除任何陈腐的比喻和公式化结构。
+5. 使文本更加个性化、生动，避免AI生成的痕迹。
+6. 保持文本的专业性和学术性。
+7. **不要添加任何额外解释**，只输出修改后的文本。
+
+**重要规则：**
+- 只修改确实属于黑名单的内容，如果没有问题，不要随意修改。
+- 保留文本的原始含义和逻辑。
+- 输出语言与输入语言一致（英文输入则英文输出，中文输入则中文输出）。
+
+**输入文本：**
+{text}
+
+**输出：**
+只输出修改后的文本，不要有任何前言或说明。
+"""
+
 # 模块映射
 modules = {
     "Motivation": "申请动机",
@@ -646,6 +965,135 @@ async def generate_personal_statement(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+
+@app.post("/api/generate-stream")
+async def generate_personal_statement_stream(
+    api_key: str = Form(""),
+    model_name: str = Form("gemini-2.5-pro"),
+    target_school_name: str = Form(...),
+    counselor_strategy: str = Form(""),
+    selected_modules: str = Form(...),  # JSON string of list
+    spelling_preference: str = Form("British"),
+    material_file: Optional[UploadFile] = File(None),
+    transcript_file: Optional[UploadFile] = File(None),
+    curriculum_text: Optional[str] = Form(None),
+    curriculum_files: Optional[List[UploadFile]] = File([]),
+):
+    """流式生成个人陈述各个模块的内容"""
+    async def event_generator():
+        try:
+            # Parse selected modules
+            modules_list = json.loads(selected_modules)
+
+            # Read material file
+            student_background_text = ""
+            if material_file:
+                file_bytes = await material_file.read()
+                if material_file.filename.endswith('.docx'):
+                    student_background_text = read_word_file(file_bytes)
+                elif material_file.filename.endswith('.pdf'):
+                    student_background_text = read_pdf_text(file_bytes)
+
+            # Prepare media content
+            transcript_content = []
+            if transcript_file:
+                file_bytes = await transcript_file.read()
+                if transcript_file.content_type == "application/pdf":
+                    transcript_content.append({
+                        "mime_type": "application/pdf",
+                        "data": file_bytes
+                    })
+                else:
+                    # For image files
+                    transcript_content.append(Image.open(io.BytesIO(file_bytes)))
+
+            curriculum_imgs = []
+            if curriculum_files:
+                for img_file in curriculum_files:
+                    file_bytes = await img_file.read()
+                    curriculum_imgs.append(Image.open(io.BytesIO(file_bytes)))
+
+            # Generate content for each selected module
+            generated_sections = {}
+            motivation_trends = ""
+
+            for module in modules_list:
+                # Get appropriate prompt
+                if module == "Motivation":
+                    prompt = get_prompt_motivation(target_school_name)
+                    current_media = None
+                elif module == "Career_Goal":
+                    prompt = get_prompt_career(target_school_name, counselor_strategy)
+                    current_media = None
+                elif module == "Academic":
+                    prompt = get_prompt_academic(target_school_name)
+                    current_media = transcript_content
+                elif module == "Why_School":
+                    prompt = get_prompt_whyschool(target_school_name, counselor_strategy, curriculum_text or "")
+                    current_media = curriculum_imgs
+                elif module == "Internship":
+                    prompt = get_prompt_internship(target_school_name)
+                    current_media = None
+                else:
+                    continue
+
+                # Send module start event
+                yield f"event: module_start\ndata: {json.dumps({'module': module})}\n\n"
+
+                # Call Gemini API with streaming
+                content_parts = [prompt]
+                if student_background_text:
+                    content_parts.append(f"\n【参考文档/背景信息 (简历或素材表)】:\n{student_background_text}")
+                if current_media:
+                    content_parts.extend(current_media) if isinstance(current_media, list) else content_parts.append(current_media)
+
+                effective_api_key = GOOGLE_API_KEY if GOOGLE_API_KEY else api_key
+                if not effective_api_key:
+                    yield f"data: Error: API Key is required.\n\n"
+                    return
+
+                genai.configure(api_key=effective_api_key)
+                model = genai.GenerativeModel(model_name)
+                response_stream = model.generate_content(content_parts, stream=True)
+
+                full_response = ""
+                for chunk in response_stream:
+                    if chunk.text:
+                        # Send chunk as SSE
+                        yield f"data: {json.dumps({'module': module, 'chunk': chunk.text})}\n\n"
+                        full_response += chunk.text
+
+                # Process full response for special handling
+                final_text = full_response.strip()
+                if module == "Motivation":
+                    if "[TRENDS_START]" in full_response and "[DRAFT_START]" in full_response:
+                        trends_part = full_response.split("[TRENDS_START]")[1].split("[TRENDS_END]")[0].strip()
+                        draft_part = full_response.split("[DRAFT_START]")[1].split("[DRAFT_END]")[0].strip()
+                        motivation_trends = trends_part
+                        final_text = draft_part
+                        # Send trends separately
+                        yield f"event: trends\ndata: {json.dumps({'trends': trends_part})}\n\n"
+                    else:
+                        final_text = full_response
+
+                generated_sections[module] = final_text
+                # Send module complete event
+                yield f"event: module_complete\ndata: {json.dumps({'module': module})}\n\n"
+
+            # Build full Chinese draft
+            full_chinese_draft = ""
+            for module in display_order:
+                if module in generated_sections:
+                    full_chinese_draft += f"--- {modules[module]} ---\n"
+                    full_chinese_draft += generated_sections[module] + "\n\n"
+
+            # Send final result
+            yield f"event: complete\ndata: {json.dumps({'generated_sections': generated_sections, 'full_chinese_draft': full_chinese_draft.strip(), 'motivation_trends': motivation_trends})}\n\n"
+
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.post("/api/analyze-experiences")
 async def analyze_experiences(
@@ -888,6 +1336,139 @@ async def generate_header(
             "header_cn": f"{target_school_name} 个人陈述",
             "header_en": f"Personal Statement for {target_school_name}"
         })
+
+# ==========================================
+# 润色功能API端点
+# ==========================================
+@app.post("/api/refine/analyze")
+async def refine_analyze(request: RefineAnalysisRequest):
+    """旧文书分析，生成中英混合段落"""
+    try:
+        # 构建分析提示词
+        prompt = build_analysis_prompt(
+            school=request.target_school,
+            major=request.target_major,
+            old_text=request.old_ps,
+            new_course_text=request.course_info or "",
+            has_images=False,  # 暂时不支持图片上传
+            strategy_text=request.strategy or ""
+        )
+
+        # 调用Gemini API
+        response = get_gemini_response(
+            api_key=request.api_key,
+            model_name=request.model_name,
+            prompt=prompt
+        )
+
+        # 解析响应数据为结构化段落
+        raw_sections = response.split('===SECTION===')
+        parsed_data = []
+
+        for sec in raw_sections:
+            if not sec.strip():
+                continue
+            # 过滤不包含核心标记的段落
+            if "[[LOGIC]]" not in sec and "[[DRAFT]]" not in sec:
+                continue
+
+            logic_part = ""
+            draft_part = ""
+            if "[[LOGIC]]" in sec:
+                parts = sec.split("[[DRAFT]]")
+                logic_part = parts[0].replace("[[LOGIC]]", "").replace("Part 1:", "").strip()
+                if len(parts) > 1:
+                    draft_part = parts[1].replace("Part 2:", "").strip()
+            else:
+                draft_part = sec.strip()
+
+            parsed_data.append({"logic": logic_part, "draft": draft_part})
+
+        return JSONResponse(content={
+            "success": True,
+            "analysis_result": response,
+            "sections_data": parsed_data
+        })
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"分析失败: {str(e)}")
+
+@app.post("/api/refine/edit")
+async def refine_edit(request: RefineEditRequest):
+    """段落批注修改"""
+    try:
+        # 检查是否包含批注标记
+        if not contains_annotation(request.text):
+            return JSONResponse(content={
+                "success": False,
+                "error": "未检测到批注标记。请在文本中添加【】或[]形式的批注。"
+            }, status_code=400)
+
+        # 构建修改提示词
+        has_chinese = contains_chinese(request.text)
+        prompt = build_refine_prompt(request.text, has_chinese)
+
+        # 调用Gemini API
+        response = get_gemini_response(
+            api_key=request.api_key,
+            model_name=request.model_name,
+            prompt=prompt
+        )
+
+        return JSONResponse(content={
+            "success": True,
+            "refined_text": response.strip()
+        })
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"修改失败: {str(e)}")
+
+@app.post("/api/refine/translate-hybrid")
+async def refine_translate_hybrid(request: HybridTranslateRequest):
+    """中英混合文本翻译"""
+    try:
+        # 构建翻译提示词
+        prompt = build_translate_prompt(request.hybrid_text, request.style)
+
+        # 调用Gemini API
+        response = get_gemini_response(
+            api_key=request.api_key,
+            model_name=request.model_name,
+            prompt=prompt
+        )
+
+        return JSONResponse(content={
+            "success": True,
+            "translated_text": response.strip(),
+            "style": request.style
+        })
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"翻译失败: {str(e)}")
+
+@app.post("/api/refine/remove-ai-vocab")
+async def refine_remove_ai_vocab(request: RemoveAIVocabRequest):
+    """去除AI写作高频词汇"""
+    try:
+        # 构建去除AI词汇提示词
+        prompt = build_remove_ai_vocab_prompt(request.text)
+
+        # 调用Gemini API
+        response = get_gemini_response(
+            api_key=request.api_key,
+            model_name=request.model_name,
+            prompt=prompt
+        )
+
+        return JSONResponse(content={
+            "success": True,
+            "cleaned_text": response.strip()
+        })
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"去除AI词汇失败: {str(e)}")
+
+# 注：/api/refine/export 直接使用现有的 /api/generate-word 端点
 
 if __name__ == "__main__":
     import uvicorn

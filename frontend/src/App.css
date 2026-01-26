@@ -593,6 +593,86 @@ textarea {
   line-height: var(--line-height-normal);
 }
 
+/* Mode selection styles */
+.mode-selection {
+  display: flex;
+  justify-content: center;
+  gap: 3rem;
+  margin-top: 4rem;
+  flex-wrap: wrap;
+}
+
+.mode-card {
+  background-color: white;
+  border-radius: 16px;
+  padding: 2.5rem;
+  width: 350px;
+  box-shadow: 0 10px 25px rgba(54, 102, 250, 0.1);
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  text-align: center;
+}
+
+.mode-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 15px 35px rgba(54, 102, 250, 0.2);
+  border-color: var(--primary-color);
+}
+
+.mode-icon {
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+}
+
+.mode-card h3 {
+  color: var(--primary-color);
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.mode-card > p {
+  color: #666;
+  margin-bottom: 2rem;
+  font-size: 1.1rem;
+}
+
+.mode-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2rem 0;
+  text-align: left;
+}
+
+.mode-features li {
+  padding: 0.5rem 0;
+  color: #444;
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.mode-features li:before {
+  content: "✓";
+  color: var(--primary-color);
+  font-weight: bold;
+  position: absolute;
+  left: 0;
+}
+
+.mode-button {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.subtitle {
+  text-align: center;
+  color: #666;
+  font-size: 1.2rem;
+  margin-top: 0.5rem;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .container {
@@ -602,4 +682,31 @@ textarea {
   .header h1 {
     font-size: 2rem;
   }
+
+  .mode-selection {
+    gap: 2rem;
+  }
+
+  .mode-card {
+    width: 100%;
+    max-width: 400px;
+  }
+}
+
+@media (max-width: 768px) {
+  .mode-selection {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+/* 流式显示光标效果 */
+.streaming-cursor::after {
+    content: "▌";
+    animation: blink 1s infinite;
+    color: var(--primary-color);
+}
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
 }
