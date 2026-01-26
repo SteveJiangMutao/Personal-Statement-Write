@@ -6,13 +6,13 @@ import './App.css';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 // Module mappings
-const modules = {
-  Motivation: "申请动机",
-  Academic: "本科学习",
-  Internship: "实习/工作",
-  Why_School: "选校理由",
-  Career_Goal: "职业规划"
-};
+// const modules = {
+//   Motivation: "申请动机",
+//   Academic: "本科学习",
+//   Internship: "实习/工作",
+//   Why_School: "选校理由",
+//   Career_Goal: "职业规划"
+// };
 
 const englishModules = {
   Motivation: "Motivation",
@@ -37,7 +37,7 @@ function App() {
     Why_School: true,
     Career_Goal: true
   });
-  const [spellingPreference, setSpellingPreference] = useState('British');
+  const [spellingPreference] = useState('British');
 
   // State for file uploads
   const [materialFile, setMaterialFile] = useState(null);
@@ -73,8 +73,8 @@ function App() {
   const [sectionsData, setSectionsData] = useState([]);
   const [confirmedParagraphs, setConfirmedParagraphs] = useState([]);
   const [confirmedContents, setConfirmedContents] = useState({});
-  const [finalPreviewText, setFinalPreviewText] = useState('');
-  const [finalPreviewTextCleaned, setFinalPreviewTextCleaned] = useState('');
+  const [_finalPreviewText, setFinalPreviewText] = useState('');
+  const [_finalPreviewTextCleaned, setFinalPreviewTextCleaned] = useState('');
 
   // State for refine mode file uploads
   const [oldPSFile, setOldPSFile] = useState(null);
@@ -87,7 +87,7 @@ function App() {
   const [toastMessage, setToastMessage] = useState('');
   // State for streaming output
   const [streamingText, setStreamingText] = useState('');
-  const [streamingModule, setStreamingModule] = useState('');
+  const [_streamingModule, setStreamingModule] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
 
   // Initialize with default module selection
@@ -99,13 +99,13 @@ function App() {
     setSelectedModules(defaultSelected);
   }, []);
 
-  // Toggle module selection
-  const toggleModule = (module) => {
-    setSelectedModules(prev => ({
-      ...prev,
-      [module]: !prev[module]
-    }));
-  };
+  // Toggle module selection - currently unused
+  // const toggleModule = (module) => {
+  //   setSelectedModules(prev => ({
+  //     ...prev,
+  //     [module]: !prev[module]
+  //   }));
+  // };
 
   // Get selected module keys
   const getSelectedModuleKeys = () => {
