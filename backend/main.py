@@ -41,7 +41,7 @@ app.add_middleware(
 # 1. 数据模型
 # ==========================================
 class GenerationRequest(BaseModel):
-    model_config = ConfigDict(protected_namespaces=None)
+    model_config = ConfigDict(protected_namespaces=())
 
     api_key: str = ""
     model_name: str = "gemini-2.5-pro"
@@ -53,7 +53,7 @@ class GenerationRequest(BaseModel):
     # Files will be handled separately as multipart form data
 
 class FileUploadRequest(BaseModel):
-    model_config = ConfigDict(protected_namespaces=None)
+    model_config = ConfigDict(protected_namespaces=())
 
     api_key: str = ""
     model_name: str = "gemini-2.5-pro"
@@ -67,7 +67,7 @@ class FileUploadRequest(BaseModel):
     curriculum_files: Optional[List[UploadFile]] = None
 
 class TranslationRequest(BaseModel):
-    model_config = ConfigDict(protected_namespaces=None)
+    model_config = ConfigDict(protected_namespaces=())
 
     api_key: str = ""
     model_name: str = "gemini-2.5-pro"
@@ -76,7 +76,7 @@ class TranslationRequest(BaseModel):
     module_type: str  # "Motivation", "Academic", etc.
 
 class EditRequest(BaseModel):
-    model_config = ConfigDict(protected_namespaces=None)
+    model_config = ConfigDict(protected_namespaces=())
 
     api_key: str = ""
     model_name: str = "gemini-2.5-pro"
@@ -84,7 +84,7 @@ class EditRequest(BaseModel):
     is_chinese: bool = True
 
 class WordGenerationRequest(BaseModel):
-    model_config = ConfigDict(protected_namespaces=None)
+    model_config = ConfigDict(protected_namespaces=())
 
     content: str
     header_text: str
@@ -92,7 +92,7 @@ class WordGenerationRequest(BaseModel):
     font_name: str = "宋体"
 
 class ExperienceAnalysisRequest(BaseModel):
-    model_config = ConfigDict(protected_namespaces=None)
+    model_config = ConfigDict(protected_namespaces=())
 
     api_key: str = ""
     model_name: str = "gemini-2.5-pro"
@@ -106,7 +106,7 @@ class ExperienceAnalysisRequest(BaseModel):
 # 润色功能数据模型
 # ==========================================
 class RefineAnalysisRequest(BaseModel):
-    model_config = ConfigDict(protected_namespaces=None)
+    model_config = ConfigDict(protected_namespaces=())
 
     api_key: str = ""
     model_name: str = "gemini-2.5-pro"
@@ -118,14 +118,14 @@ class RefineAnalysisRequest(BaseModel):
     # Files will be handled separately as multipart form data
 
 class ParagraphData(BaseModel):
-    model_config = ConfigDict(protected_namespaces=None)
+    model_config = ConfigDict(protected_namespaces=())
 
     logic: str
     draft: str
     confirmed: bool = False
 
 class RefineEditRequest(BaseModel):
-    model_config = ConfigDict(protected_namespaces=None)
+    model_config = ConfigDict(protected_namespaces=())
 
     api_key: str = ""
     model_name: str = "gemini-2.5-pro"
@@ -133,7 +133,7 @@ class RefineEditRequest(BaseModel):
     has_chinese: bool = True
 
 class HybridTranslateRequest(BaseModel):
-    model_config = ConfigDict(protected_namespaces=None)
+    model_config = ConfigDict(protected_namespaces=())
 
     api_key: str = ""
     model_name: str = "gemini-2.5-pro"
@@ -141,7 +141,7 @@ class HybridTranslateRequest(BaseModel):
     style: str = "US"  # "US" or "UK"
 
 class RemoveAIVocabRequest(BaseModel):
-    model_config = ConfigDict(protected_namespaces=None)
+    model_config = ConfigDict(protected_namespaces=())
 
     api_key: str = ""
     model_name: str = "gemini-2.5-pro"
